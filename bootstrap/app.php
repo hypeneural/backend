@@ -13,8 +13,15 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        // Global middleware - runs on every request
+        $middleware->api(prepend: [
+            \App\Http\Middleware\RequestId::class,
+        ]);
+
+        // Middleware aliases
         $middleware->alias([
             'auth' => \PHPOpenSourceSaver\JWTAuth\Http\Middleware\Authenticate::class,
+            'idempotent' => \App\Http\Middleware\IdempotencyKey::class,
         ]);
 
         $middleware->throttleApi('60,1');
@@ -22,3 +29,4 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withExceptions(function (Exceptions $exceptions): void {
         //
     })->create();
+

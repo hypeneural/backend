@@ -69,6 +69,19 @@ Route::prefix('v1')->group(function () {
         Route::get('/{id}', [CityController::class, 'show']);
     });
 
+    // Collections curadas (public)
+    Route::prefix('collections')->group(function () {
+        Route::get('/', [\App\Http\Controllers\V1\CollectionController::class, 'index']);
+        Route::get('/{id}', [\App\Http\Controllers\V1\CollectionController::class, 'show']);
+    });
+
+    // Weather (public, cached) - WeatherAPI.com proxy
+    Route::prefix('weather')->group(function () {
+        Route::get('/search', [\App\Http\Controllers\V1\WeatherController::class, 'search']);
+        Route::get('/current', [\App\Http\Controllers\V1\WeatherController::class, 'current']);
+        Route::get('/forecast', [\App\Http\Controllers\V1\WeatherController::class, 'forecast']);
+    });
+
     /*
     |--------------------------------------------------------------------------
     | Protected Routes (Require JWT)
