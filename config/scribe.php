@@ -1,59 +1,41 @@
 <?php
 
+/**
+ * Scribe API Documentation Configuration
+ * 
+ * This config only works when knuckleswtf/scribe package is installed.
+ * If not installed, this file will return an empty array to avoid errors.
+ */
+
+// Check if Scribe is installed
+if (!class_exists(\Knuckles\Scribe\Config\Defaults::class)) {
+    return [];
+}
+
 use Knuckles\Scribe\Extracting\Strategies;
 use Knuckles\Scribe\Config\Defaults;
 use Knuckles\Scribe\Config\AuthIn;
 use function Knuckles\Scribe\Config\{removeStrategies, configureStrategy};
 
 return [
-    // The HTML <title> for the generated documentation.
     'title' => 'Bora Dia Família - API Documentation',
+    'description' => 'API REST para o aplicativo Bora Dia Família.',
 
-    // A short description of your API.
-    'description' => 'API REST para o aplicativo Bora Dia Família - plataforma de descoberta de experiências para famílias.',
-
-    // Text to place in the "Introduction" section
     'intro_text' => <<<INTRO
         # Bem-vindo à API Bora Dia Família! 🎯
         
-        Esta documentação descreve todos os endpoints disponíveis para integração com o aplicativo.
+        Esta documentação descreve todos os endpoints disponíveis.
         
         ## Autenticação
-        A API usa **JWT (JSON Web Token)** para autenticação. Após fazer login via OTP, você receberá um `access_token` que deve ser incluído no header de todas as requisições protegidas:
+        A API usa **JWT (JSON Web Token)**. Após login via OTP, inclua o token no header:
         
         ```
         Authorization: Bearer {seu_access_token}
         ```
-        
-        ## Formato de Resposta
-        Todas as respostas seguem o formato padrão:
-        
-        ```json
-        {
-          "data": { ... },
-          "meta": { "success": true },
-          "errors": null
-        }
-        ```
-        
-        ## Códigos de Erro
-        | HTTP | Código | Descrição |
-        |------|--------|-----------|
-        | 400 | BAD_REQUEST | Requisição inválida |
-        | 401 | UNAUTHORIZED | Token inválido ou expirado |
-        | 403 | FORBIDDEN | Sem permissão |
-        | 404 | NOT_FOUND | Recurso não encontrado |
-        | 422 | VALIDATION_ERROR | Erro de validação |
-        | 429 | RATE_LIMIT | Muitas requisições |
-        
-        ## Paginação
-        Endpoints de listagem usam cursor pagination. O campo `next_cursor` em `meta` contém o cursor para a próxima página.
     INTRO,
 
-    // The base URL displayed in the docs.
     'base_url' => 'https://api.valorsc.com.br',
 
-    // Routes to include in the docs
     'routes' => [
         [
             'match' => [
@@ -66,7 +48,6 @@ return [
     ],
 
     'type' => 'static',
-
     'theme' => 'default',
 
     'static' => [
@@ -91,7 +72,6 @@ return [
         'csrf_url' => '/sanctum/csrf-cookie',
     ],
 
-    // Authentication configuration
     'auth' => [
         'enabled' => true,
         'default' => true,
@@ -99,35 +79,23 @@ return [
         'name' => 'Authorization',
         'use_value' => env('SCRIBE_AUTH_KEY'),
         'placeholder' => '{ACCESS_TOKEN}',
-        'extra_info' => 'Obtenha seu token através do endpoint `/auth/otp/verify` após verificar o código OTP.',
+        'extra_info' => 'Obtenha seu token via `/auth/otp/verify`.',
     ],
 
-    // Example languages
-    'example_languages' => [
-        'bash',
-        'javascript',
-        'php',
-    ],
+    'example_languages' => ['bash', 'javascript', 'php'],
 
-    // Postman collection
     'postman' => [
         'enabled' => true,
-        'overrides' => [
-            'info.version' => '1.0.0',
-        ],
+        'overrides' => ['info.version' => '1.0.0'],
     ],
 
-    // OpenAPI spec
     'openapi' => [
         'enabled' => true,
         'version' => '3.0.3',
-        'overrides' => [
-            'info.version' => '1.0.0',
-        ],
+        'overrides' => ['info.version' => '1.0.0'],
         'generators' => [],
     ],
 
-    // Groups configuration
     'groups' => [
         'default' => 'Outros',
         'order' => [
@@ -153,7 +121,6 @@ return [
     ],
 
     'logo' => false,
-
     'last_updated' => 'Última atualização: {date:d/m/Y H:i}',
 
     'examples' => [
@@ -162,9 +129,7 @@ return [
     ],
 
     'strategies' => [
-        'metadata' => [
-            ...Defaults::METADATA_STRATEGIES,
-        ],
+        'metadata' => [...Defaults::METADATA_STRATEGIES],
         'headers' => [
             ...Defaults::HEADERS_STRATEGIES,
             Strategies\StaticData::withSettings(data: [
@@ -172,27 +137,17 @@ return [
                 'Accept' => 'application/json',
             ]),
         ],
-        'urlParameters' => [
-            ...Defaults::URL_PARAMETERS_STRATEGIES,
-        ],
-        'queryParameters' => [
-            ...Defaults::QUERY_PARAMETERS_STRATEGIES,
-        ],
-        'bodyParameters' => [
-            ...Defaults::BODY_PARAMETERS_STRATEGIES,
-        ],
+        'urlParameters' => [...Defaults::URL_PARAMETERS_STRATEGIES],
+        'queryParameters' => [...Defaults::QUERY_PARAMETERS_STRATEGIES],
+        'bodyParameters' => [...Defaults::BODY_PARAMETERS_STRATEGIES],
         'responses' => removeStrategies(
             Defaults::RESPONSES_STRATEGIES,
             [Strategies\Responses\ResponseCalls::class]
         ),
-        'responseFields' => [
-            ...Defaults::RESPONSE_FIELDS_STRATEGIES,
-        ]
+        'responseFields' => [...Defaults::RESPONSE_FIELDS_STRATEGIES],
     ],
 
     'database_connections_to_transact' => [config('database.default')],
 
-    'fractal' => [
-        'serializer' => null,
-    ],
+    'fractal' => ['serializer' => null],
 ];
