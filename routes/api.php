@@ -22,6 +22,7 @@ use App\Http\Controllers\V1\UploadController;
 use App\Http\Controllers\V1\NotificationController;
 use App\Http\Controllers\V1\ReportController;
 use App\Http\Controllers\V1\DeepLinkController;
+use App\Http\Controllers\V1\ConfigController;
 
 /*
 |--------------------------------------------------------------------------
@@ -38,6 +39,10 @@ Route::prefix('v1')->group(function () {
     | Public Routes
     |--------------------------------------------------------------------------
     */
+
+    // Health check & Config
+    Route::get('/health', [ConfigController::class, 'health']);
+    Route::get('/config', [ConfigController::class, 'config']);
 
     // Authentication
     Route::prefix('auth')->group(function () {
