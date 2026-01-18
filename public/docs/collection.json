@@ -1,0 +1,2400 @@
+{
+    "variable": [
+        {
+            "id": "baseUrl",
+            "key": "baseUrl",
+            "type": "string",
+            "name": "string",
+            "value": "https:\/\/api.valorsc.com.br"
+        }
+    ],
+    "info": {
+        "name": "Bora Dia Fam\u00edlia - API Documentation",
+        "_postman_id": "dfdb2863-b08e-4beb-96da-6b5e665b8f0b",
+        "description": "API REST para o aplicativo Bora Dia Fam\u00edlia - plataforma de descoberta de experi\u00eancias para fam\u00edlias.",
+        "schema": "https:\/\/schema.getpostman.com\/json\/collection\/v2.1.0\/collection.json",
+        "version": "1.0.0"
+    },
+    "item": [
+        {
+            "name": "1. Autentica\u00e7\u00e3o",
+            "description": "\nAPIs para autentica\u00e7\u00e3o via OTP (One-Time Password) e gerenciamento de tokens JWT.\n\nO fluxo de autentica\u00e7\u00e3o funciona assim:\n1. Envie o telefone para `\/auth\/otp\/send` - voc\u00ea receber\u00e1 um c\u00f3digo de 6 d\u00edgitos via SMS\n2. Verifique o c\u00f3digo em `\/auth\/otp\/verify` - voc\u00ea receber\u00e1 os tokens de acesso\n3. Use o `access_token` no header Authorization para requisi\u00e7\u00f5es autenticadas\n4. Quando o token expirar, use `\/auth\/refresh` para obter um novo",
+            "item": [
+                {
+                    "name": "Enviar OTP",
+                    "request": {
+                        "url": {
+                            "host": "{{baseUrl}}",
+                            "path": "api\/v1\/auth\/otp\/send",
+                            "query": [],
+                            "raw": "{{baseUrl}}\/api\/v1\/auth\/otp\/send"
+                        },
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application\/json"
+                            },
+                            {
+                                "key": "Accept",
+                                "value": "application\/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\"phone\":\"11999999999\"}"
+                        },
+                        "description": "Envia um c\u00f3digo de verifica\u00e7\u00e3o de 6 d\u00edgitos para o telefone informado via SMS.\nO c\u00f3digo expira em 5 minutos e pode ser reenviado ap\u00f3s 1 minuto.",
+                        "auth": {
+                            "type": "noauth"
+                        }
+                    },
+                    "response": [
+                        {
+                            "header": [],
+                            "code": 200,
+                            "body": "{\n  \"data\": {\n    \"message\": \"Code sent successfully.\",\n    \"expires_at\": \"2026-01-18T05:32:36Z\",\n    \"code\": \"123456\"\n  },\n  \"meta\": {\"success\": true},\n  \"errors\": null\n}",
+                            "name": "C\u00f3digo enviado com sucesso"
+                        },
+                        {
+                            "header": [],
+                            "code": 422,
+                            "body": "{\n  \"data\": null,\n  \"meta\": {\"success\": false},\n  \"errors\": [{\"code\": \"VALIDATION_ERROR\", \"message\": \"O campo phone \u00e9 obrigat\u00f3rio\"}]\n}",
+                            "name": "Telefone inv\u00e1lido"
+                        },
+                        {
+                            "header": [],
+                            "code": 429,
+                            "body": "{\n  \"data\": null,\n  \"meta\": {\"success\": false},\n  \"errors\": [{\"code\": \"RATE_LIMIT\", \"message\": \"Aguarde 1 minuto para reenviar\"}]\n}",
+                            "name": "Rate limit (aguarde 1 minuto)"
+                        }
+                    ]
+                },
+                {
+                    "name": "Verificar OTP e Autenticar",
+                    "request": {
+                        "url": {
+                            "host": "{{baseUrl}}",
+                            "path": "api\/v1\/auth\/otp\/verify",
+                            "query": [],
+                            "raw": "{{baseUrl}}\/api\/v1\/auth\/otp\/verify"
+                        },
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application\/json"
+                            },
+                            {
+                                "key": "Accept",
+                                "value": "application\/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\"phone\":\"11999999999\",\"code\":\"123456\",\"name\":\"Jo\u00e3o Silva\",\"referral_code\":\"BORA123\"}"
+                        },
+                        "description": "Valida o c\u00f3digo OTP recebido por SMS e retorna os tokens de autentica\u00e7\u00e3o.\nSe o usu\u00e1rio n\u00e3o existir, uma nova conta ser\u00e1 criada automaticamente.",
+                        "auth": {
+                            "type": "noauth"
+                        }
+                    },
+                    "response": [
+                        {
+                            "header": [],
+                            "code": 200,
+                            "body": "{\n  \"data\": {\n    \"user\": {\n      \"id\": \"019bcf92-ecda-70a6-98ec-204362b9c61a\",\n      \"phone\": \"+5511999999999\",\n      \"name\": \"Jo\u00e3o Silva\",\n      \"avatar\": \"https:\/\/cdn.example.com\/avatar.jpg\",\n      \"is_verified\": true,\n      \"onboarding_completed\": true,\n      \"primary_family_id\": \"019bcf92-ecde-718f-a588-27021c63eb59\",\n      \"primary_city_id\": \"edbca93c-2f01-4e17-af0a-53b1ccb4bf90\"\n    },\n    \"tokens\": {\n      \"access_token\": \"eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...\",\n      \"refresh_token\": \"n6rowFjjp07kkFyJ5yKl4vJ4nUvqb6Ry...\",\n      \"token_type\": \"bearer\",\n      \"expires_in\": 3600\n    },\n    \"is_new_user\": false\n  },\n  \"meta\": {\"success\": true},\n  \"errors\": null\n}",
+                            "name": "Usu\u00e1rio existente autenticado"
+                        },
+                        {
+                            "header": [],
+                            "code": 201,
+                            "body": "{\n  \"data\": {\n    \"user\": {\n      \"id\": \"019bcf92-ecda-70a6-98ec-204362b9c61a\",\n      \"phone\": \"+5511999999999\",\n      \"name\": \"Jo\u00e3o Silva\",\n      \"avatar\": null,\n      \"is_verified\": true,\n      \"onboarding_completed\": false,\n      \"primary_family_id\": \"019bcf92-ecde-718f-a588-27021c63eb59\",\n      \"primary_city_id\": null\n    },\n    \"tokens\": {\n      \"access_token\": \"eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...\",\n      \"refresh_token\": \"n6rowFjjp07kkFyJ5yKl4vJ4nUvqb6Ry...\",\n      \"token_type\": \"bearer\",\n      \"expires_in\": 3600\n    },\n    \"is_new_user\": true\n  },\n  \"meta\": {\"success\": true},\n  \"errors\": null\n}",
+                            "name": "Novo usu\u00e1rio criado"
+                        },
+                        {
+                            "header": [],
+                            "code": 400,
+                            "body": "{\n  \"data\": null,\n  \"meta\": {\"success\": false},\n  \"errors\": [{\"code\": \"OTP_EXPIRED\", \"message\": \"C\u00f3digo expirado. Solicite um novo.\"}]\n}",
+                            "name": "C\u00f3digo expirado"
+                        },
+                        {
+                            "header": [],
+                            "code": 401,
+                            "body": "{\n  \"data\": null,\n  \"meta\": {\"success\": false, \"attempts_remaining\": 2},\n  \"errors\": [{\"code\": \"OTP_INVALID\", \"message\": \"C\u00f3digo incorreto\"}]\n}",
+                            "name": "C\u00f3digo inv\u00e1lido"
+                        }
+                    ]
+                },
+                {
+                    "name": "Renovar Token",
+                    "request": {
+                        "url": {
+                            "host": "{{baseUrl}}",
+                            "path": "api\/v1\/auth\/refresh",
+                            "query": [],
+                            "raw": "{{baseUrl}}\/api\/v1\/auth\/refresh"
+                        },
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application\/json"
+                            },
+                            {
+                                "key": "Accept",
+                                "value": "application\/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\"refresh_token\":\"n6rowFjjp07kkFyJ5yKl4vJ4nUvqb6Ry...\"}"
+                        },
+                        "description": "Gera um novo par de tokens (access + refresh) usando o refresh token atual.\nO refresh token antigo \u00e9 invalidado ap\u00f3s o uso (one-time use).",
+                        "auth": {
+                            "type": "noauth"
+                        }
+                    },
+                    "response": [
+                        {
+                            "header": [],
+                            "code": 200,
+                            "body": "{\n  \"data\": {\n    \"tokens\": {\n      \"access_token\": \"eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...\",\n      \"refresh_token\": \"novoRefreshToken123...\",\n      \"token_type\": \"bearer\",\n      \"expires_in\": 3600\n    }\n  },\n  \"meta\": {\"success\": true},\n  \"errors\": null\n}",
+                            "name": "Tokens renovados com sucesso"
+                        },
+                        {
+                            "header": [],
+                            "code": 401,
+                            "body": "{\n  \"data\": null,\n  \"meta\": {\"success\": false},\n  \"errors\": [{\"code\": \"INVALID_REFRESH_TOKEN\", \"message\": \"Token inv\u00e1lido ou expirado\"}]\n}",
+                            "name": "Refresh token inv\u00e1lido ou expirado"
+                        }
+                    ]
+                },
+                {
+                    "name": "Logout",
+                    "request": {
+                        "url": {
+                            "host": "{{baseUrl}}",
+                            "path": "api\/v1\/auth\/logout",
+                            "query": [],
+                            "raw": "{{baseUrl}}\/api\/v1\/auth\/logout"
+                        },
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application\/json"
+                            },
+                            {
+                                "key": "Accept",
+                                "value": "application\/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\"refresh_token\":\"n6rowFjjp07kkFyJ5yKl...\",\"all_devices\":false}"
+                        },
+                        "description": "Revoga os tokens de acesso do usu\u00e1rio. Pode revogar apenas o dispositivo atual\nou todos os dispositivos de uma vez."
+                    },
+                    "response": [
+                        {
+                            "header": [],
+                            "code": 200,
+                            "body": "{\n  \"data\": {\"message\": \"Logged out successfully\"},\n  \"meta\": {\"success\": true},\n  \"errors\": null\n}",
+                            "name": "Logout realizado"
+                        }
+                    ]
+                },
+                {
+                    "name": "Dados do Usu\u00e1rio Logado",
+                    "request": {
+                        "url": {
+                            "host": "{{baseUrl}}",
+                            "path": "api\/v1\/auth\/me",
+                            "query": [],
+                            "raw": "{{baseUrl}}\/api\/v1\/auth\/me"
+                        },
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application\/json"
+                            },
+                            {
+                                "key": "Accept",
+                                "value": "application\/json"
+                            }
+                        ],
+                        "body": null,
+                        "description": "Retorna os dados completos do usu\u00e1rio autenticado, incluindo estat\u00edsticas\nde gamifica\u00e7\u00e3o e informa\u00e7\u00f5es da fam\u00edlia principal."
+                    },
+                    "response": [
+                        {
+                            "header": [],
+                            "code": 200,
+                            "body": "{\n  \"data\": {\n    \"id\": \"019bcf92-ecda-70a6-98ec-204362b9c61a\",\n    \"phone\": \"+5511999999999\",\n    \"name\": \"Jo\u00e3o Silva\",\n    \"avatar\": \"https:\/\/cdn.example.com\/avatar.jpg\",\n    \"email\": \"joao@email.com\",\n    \"is_verified\": true,\n    \"stats\": {\n      \"xp\": 500,\n      \"level\": 2,\n      \"streak_days\": 5\n    },\n    \"primary_family\": {\n      \"id\": \"019bcf92-ecde-718f-a588-27021c63eb59\",\n      \"name\": \"Fam\u00edlia Silva\"\n    },\n    \"created_at\": \"2026-01-15T10:00:00Z\"\n  },\n  \"meta\": {\"success\": true},\n  \"errors\": null\n}",
+                            "name": "Dados retornados com sucesso"
+                        },
+                        {
+                            "header": [],
+                            "code": 401,
+                            "body": "{\n  \"data\": null,\n  \"meta\": {\"success\": false},\n  \"errors\": [{\"code\": \"UNAUTHENTICATED\", \"message\": \"Token inv\u00e1lido ou expirado\"}]\n}",
+                            "name": "Token inv\u00e1lido"
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "2. Onboarding",
+            "description": "\nEndpoints para o fluxo de onboarding de novos usu\u00e1rios.\n\nAp\u00f3s o primeiro login, o usu\u00e1rio deve completar o onboarding para\npersonalizar sua experi\u00eancia. O fluxo inclui:\n1. Informar nome\n2. Criar\/nomear fam\u00edlia\n3. Selecionar categorias favoritas\n4. Definir prefer\u00eancias (dist\u00e2ncia, pre\u00e7o)\n5. Adicionar dependentes (opcional)",
+            "item": [
+                {
+                    "name": "Status do Onboarding",
+                    "request": {
+                        "url": {
+                            "host": "{{baseUrl}}",
+                            "path": "api\/v1\/onboarding\/status",
+                            "query": [],
+                            "raw": "{{baseUrl}}\/api\/v1\/onboarding\/status"
+                        },
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application\/json"
+                            },
+                            {
+                                "key": "Accept",
+                                "value": "application\/json"
+                            }
+                        ],
+                        "body": null,
+                        "description": "Verifica quais etapas do onboarding o usu\u00e1rio j\u00e1 completou\ne quais ainda est\u00e3o pendentes."
+                    },
+                    "response": [
+                        {
+                            "header": [],
+                            "code": 200,
+                            "body": "{\n  \"data\": {\n    \"completed\": false,\n    \"steps_completed\": [\"name\", \"family\"],\n    \"missing_steps\": [\"preferences\", \"categories\"]\n  },\n  \"meta\": {\"success\": true},\n  \"errors\": null\n}",
+                            "name": "Onboarding incompleto"
+                        },
+                        {
+                            "header": [],
+                            "code": 200,
+                            "body": "{\n  \"data\": {\n    \"completed\": true,\n    \"steps_completed\": [\"name\", \"family\", \"preferences\", \"categories\", \"dependents\"],\n    \"missing_steps\": []\n  },\n  \"meta\": {\"success\": true},\n  \"errors\": null\n}",
+                            "name": "Onboarding completo"
+                        }
+                    ]
+                },
+                {
+                    "name": "Completar Onboarding",
+                    "request": {
+                        "url": {
+                            "host": "{{baseUrl}}",
+                            "path": "api\/v1\/onboarding\/complete",
+                            "query": [],
+                            "raw": "{{baseUrl}}\/api\/v1\/onboarding\/complete"
+                        },
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application\/json"
+                            },
+                            {
+                                "key": "Accept",
+                                "value": "application\/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\"name\":\"Jo\u00e3o Silva\",\"favorite_categories\":[\"c038d7b3-74b9-4c28-8488-b64a5dc1d791\"],\"max_distance_km\":30,\"default_price\":\"moderate\",\"family_name\":\"Fam\u00edlia Silva\",\"dependents\":[{\"name\":\"Lucas\",\"birth_date\":\"2018-05-15\",\"age_group\":\"kid\",\"avatar\":\"\ud83d\udc66\"}]}"
+                        },
+                        "description": "Completa todas as etapas do onboarding de uma vez.\nEste endpoint executa as seguintes a\u00e7\u00f5es em uma transa\u00e7\u00e3o:\n- Atualiza o nome do usu\u00e1rio\n- Atualiza o nome da fam\u00edlia (se fornecido)\n- Cria as prefer\u00eancias da fam\u00edlia\n- Associa as categorias favoritas\n- Cria os dependentes (se fornecidos)\n- Marca o onboarding como conclu\u00eddo"
+                    },
+                    "response": [
+                        {
+                            "header": [],
+                            "code": 201,
+                            "body": "{\n  \"data\": {\n    \"message\": \"Onboarding completed successfully!\",\n    \"user\": {\n      \"id\": \"019bcf92-ecda-70a6-98ec-204362b9c61a\",\n      \"name\": \"Jo\u00e3o Silva\",\n      \"onboarding_completed\": true\n    }\n  },\n  \"meta\": {\"success\": true},\n  \"errors\": null\n}",
+                            "name": "Onboarding completado"
+                        },
+                        {
+                            "header": [],
+                            "code": 422,
+                            "body": "{\n  \"data\": null,\n  \"meta\": {\"success\": false},\n  \"errors\": [\n    {\"code\": \"VALIDATION_ERROR\", \"field\": \"favorite_categories\", \"message\": \"O campo favorite_categories \u00e9 obrigat\u00f3rio\"}\n  ]\n}",
+                            "name": "Dados inv\u00e1lidos"
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "8. Categorias",
+            "description": "\nEndpoints para listar categorias de experi\u00eancias.\n\nAs categorias s\u00e3o usadas para classificar e filtrar experi\u00eancias.\nEste endpoint \u00e9 p\u00fablico e os dados s\u00e3o cacheados por 24 horas.",
+            "item": [
+                {
+                    "name": "Listar Categorias",
+                    "request": {
+                        "url": {
+                            "host": "{{baseUrl}}",
+                            "path": "api\/v1\/categories",
+                            "query": [],
+                            "raw": "{{baseUrl}}\/api\/v1\/categories"
+                        },
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application\/json"
+                            },
+                            {
+                                "key": "Accept",
+                                "value": "application\/json"
+                            }
+                        ],
+                        "body": null,
+                        "description": "Retorna todas as categorias ativas ordenadas por prioridade.\nOs dados s\u00e3o cacheados por 24 horas para melhor performance.",
+                        "auth": {
+                            "type": "noauth"
+                        }
+                    },
+                    "response": [
+                        {
+                            "header": [],
+                            "code": 200,
+                            "body": "{\n  \"data\": [\n    {\n      \"id\": \"c038d7b3-74b9-4c28-8488-b64a5dc1d791\",\n      \"name\": \"Parques\",\n      \"slug\": \"parques\",\n      \"emoji\": \"\ud83c\udf33\",\n      \"icon\": \"trees\",\n      \"color\": \"#22c55e\",\n      \"description\": \"Parques, pra\u00e7as e \u00e1reas verdes para curtir ao ar livre\",\n      \"experiences_count\": 45\n    },\n    {\n      \"id\": \"99da4ce7-cf82-4445-9942-51873a2c7741\",\n      \"name\": \"Museus\",\n      \"slug\": \"museus\",\n      \"emoji\": \"\ud83c\udfdb\ufe0f\",\n      \"icon\": \"landmark\",\n      \"color\": \"#8b5cf6\",\n      \"description\": \"Museus, exposi\u00e7\u00f5es e centros culturais\",\n      \"experiences_count\": 32\n    }\n  ],\n  \"meta\": {\n    \"success\": true,\n    \"cache_until\": \"2026-01-19T10:00:00Z\"\n  },\n  \"errors\": null\n}",
+                            "name": "Lista de categorias"
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "9. Cidades",
+            "description": "\nEndpoints para buscar e visualizar cidades dispon\u00edveis.\n\nTodas as experi\u00eancias s\u00e3o vinculadas a uma cidade. Use estes endpoints\npara buscar cidades dispon\u00edveis ou obter detalhes de uma cidade espec\u00edfica.",
+            "item": [
+                {
+                    "name": "Buscar Cidades",
+                    "request": {
+                        "url": {
+                            "host": "{{baseUrl}}",
+                            "path": "api\/v1\/cities",
+                            "query": [
+                                {
+                                    "key": "q",
+                                    "value": "S%C3%A3o+Paulo",
+                                    "description": "Texto para buscar no nome ou estado.",
+                                    "disabled": false
+                                },
+                                {
+                                    "key": "limit",
+                                    "value": "10",
+                                    "description": "Quantidade m\u00e1xima de resultados (1-50). Default: 10.",
+                                    "disabled": false
+                                }
+                            ],
+                            "raw": "{{baseUrl}}\/api\/v1\/cities?q=S%C3%A3o+Paulo&limit=10"
+                        },
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application\/json"
+                            },
+                            {
+                                "key": "Accept",
+                                "value": "application\/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\"q\":\"b\",\"limit\":22}"
+                        },
+                        "description": "Busca cidades por nome ou estado. Se nenhum termo for informado,\nretorna as maiores cidades por popula\u00e7\u00e3o.",
+                        "auth": {
+                            "type": "noauth"
+                        }
+                    },
+                    "response": [
+                        {
+                            "header": [],
+                            "code": 200,
+                            "body": "{\n  \"data\": [\n    {\n      \"id\": \"edbca93c-2f01-4e17-af0a-53b1ccb4bf90\",\n      \"name\": \"S\u00e3o Paulo\",\n      \"slug\": \"sao-paulo\",\n      \"state\": \"SP\",\n      \"country\": \"BR\",\n      \"lat\": -23.5505,\n      \"lng\": -46.6333,\n      \"timezone\": \"America\/Sao_Paulo\",\n      \"display_name\": \"S\u00e3o Paulo, SP\"\n    },\n    {\n      \"id\": \"1dd3042f-077f-4721-b1c0-661c0976bfd2\",\n      \"name\": \"Rio de Janeiro\",\n      \"slug\": \"rio-de-janeiro\",\n      \"state\": \"RJ\",\n      \"country\": \"BR\",\n      \"lat\": -22.9068,\n      \"lng\": -43.1729,\n      \"timezone\": \"America\/Sao_Paulo\",\n      \"display_name\": \"Rio de Janeiro, RJ\"\n    }\n  ],\n  \"meta\": {\"success\": true},\n  \"errors\": null\n}",
+                            "name": "Lista de cidades"
+                        }
+                    ]
+                },
+                {
+                    "name": "Detalhes da Cidade",
+                    "request": {
+                        "url": {
+                            "host": "{{baseUrl}}",
+                            "path": "api\/v1\/cities\/:id",
+                            "query": [],
+                            "raw": "{{baseUrl}}\/api\/v1\/cities\/:id",
+                            "variable": [
+                                {
+                                    "id": "id",
+                                    "key": "id",
+                                    "value": "edbca93c-2f01-4e17-af0a-53b1ccb4bf90",
+                                    "description": "UUID da cidade."
+                                }
+                            ]
+                        },
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application\/json"
+                            },
+                            {
+                                "key": "Accept",
+                                "value": "application\/json"
+                            }
+                        ],
+                        "body": null,
+                        "description": "Retorna informa\u00e7\u00f5es detalhadas de uma cidade espec\u00edfica,\nincluindo contagem de lugares e experi\u00eancias dispon\u00edveis.",
+                        "auth": {
+                            "type": "noauth"
+                        }
+                    },
+                    "response": [
+                        {
+                            "header": [],
+                            "code": 200,
+                            "body": "{\n  \"data\": {\n    \"id\": \"edbca93c-2f01-4e17-af0a-53b1ccb4bf90\",\n    \"name\": \"S\u00e3o Paulo\",\n    \"slug\": \"sao-paulo\",\n    \"state\": \"SP\",\n    \"country\": \"BR\",\n    \"lat\": -23.5505,\n    \"lng\": -46.6333,\n    \"timezone\": \"America\/Sao_Paulo\",\n    \"population\": 12400000,\n    \"places_count\": 150,\n    \"experiences_count\": 320\n  },\n  \"meta\": {\"success\": true},\n  \"errors\": null\n}",
+                            "name": "Detalhes da cidade"
+                        },
+                        {
+                            "header": [],
+                            "code": 404,
+                            "body": "{\n  \"data\": null,\n  \"meta\": {\"success\": false},\n  \"errors\": [{\"code\": \"NOT_FOUND\", \"message\": \"Cidade n\u00e3o encontrada\"}]\n}",
+                            "name": "Cidade n\u00e3o encontrada"
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "Outros",
+            "description": "",
+            "item": [
+                {
+                    "name": "Resolve a deep link code\nGET \/v1\/resolve\/{code}",
+                    "request": {
+                        "url": {
+                            "host": "{{baseUrl}}",
+                            "path": "api\/v1\/resolve\/:code",
+                            "query": [],
+                            "raw": "{{baseUrl}}\/api\/v1\/resolve\/:code",
+                            "variable": [
+                                {
+                                    "id": "code",
+                                    "key": "code",
+                                    "value": "architecto",
+                                    "description": ""
+                                }
+                            ]
+                        },
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application\/json"
+                            },
+                            {
+                                "key": "Accept",
+                                "value": "application\/json"
+                            }
+                        ],
+                        "body": null,
+                        "description": ""
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Update current user profile\nPUT \/v1\/users\/me",
+                    "request": {
+                        "url": {
+                            "host": "{{baseUrl}}",
+                            "path": "api\/v1\/users\/me",
+                            "query": [],
+                            "raw": "{{baseUrl}}\/api\/v1\/users\/me"
+                        },
+                        "method": "PUT",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application\/json"
+                            },
+                            {
+                                "key": "Accept",
+                                "value": "application\/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\"name\":\"b\",\"email\":\"zbailey@example.net\"}"
+                        },
+                        "description": ""
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Update user avatar\nPATCH \/v1\/users\/me\/avatar",
+                    "request": {
+                        "url": {
+                            "host": "{{baseUrl}}",
+                            "path": "api\/v1\/users\/me\/avatar",
+                            "query": [],
+                            "raw": "{{baseUrl}}\/api\/v1\/users\/me\/avatar"
+                        },
+                        "method": "PATCH",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application\/json"
+                            },
+                            {
+                                "key": "Accept",
+                                "value": "application\/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\"avatar_url\":\"http:\\\/\\\/www.bailey.biz\\\/quos-velit-et-fugiat-sunt-nihil-accusantium-harum.html\"}"
+                        },
+                        "description": ""
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Update user location\nPOST \/v1\/users\/me\/location",
+                    "request": {
+                        "url": {
+                            "host": "{{baseUrl}}",
+                            "path": "api\/v1\/users\/me\/location",
+                            "query": [],
+                            "raw": "{{baseUrl}}\/api\/v1\/users\/me\/location"
+                        },
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application\/json"
+                            },
+                            {
+                                "key": "Accept",
+                                "value": "application\/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\"lat\":-89,\"lng\":-179,\"city_id\":\"6b72fe4a-5b40-307c-bc24-f79acf9a1bb9\"}"
+                        },
+                        "description": ""
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Get user statistics\nGET \/v1\/users\/me\/stats",
+                    "request": {
+                        "url": {
+                            "host": "{{baseUrl}}",
+                            "path": "api\/v1\/users\/me\/stats",
+                            "query": [],
+                            "raw": "{{baseUrl}}\/api\/v1\/users\/me\/stats"
+                        },
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application\/json"
+                            },
+                            {
+                                "key": "Accept",
+                                "value": "application\/json"
+                            }
+                        ],
+                        "body": null,
+                        "description": ""
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Soft delete user account\nDELETE \/v1\/users\/me",
+                    "request": {
+                        "url": {
+                            "host": "{{baseUrl}}",
+                            "path": "api\/v1\/users\/me",
+                            "query": [],
+                            "raw": "{{baseUrl}}\/api\/v1\/users\/me"
+                        },
+                        "method": "DELETE",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application\/json"
+                            },
+                            {
+                                "key": "Accept",
+                                "value": "application\/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\"confirmation\":\"DELETE\"}"
+                        },
+                        "description": ""
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Unified Home endpoint\nGET \/v1\/home?city_id={id}&lat={lat}&lng={lng}",
+                    "request": {
+                        "url": {
+                            "host": "{{baseUrl}}",
+                            "path": "api\/v1\/home",
+                            "query": [],
+                            "raw": "{{baseUrl}}\/api\/v1\/home"
+                        },
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application\/json"
+                            },
+                            {
+                                "key": "Accept",
+                                "value": "application\/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\"city_id\":\"6ff8f7f6-1eb3-3525-be4a-3932c805afed\",\"lat\":-90,\"lng\":-179}"
+                        },
+                        "description": ""
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Search experiences with facets and cursor pagination\nGET \/v1\/experiences\/search",
+                    "request": {
+                        "url": {
+                            "host": "{{baseUrl}}",
+                            "path": "api\/v1\/experiences\/search",
+                            "query": [],
+                            "raw": "{{baseUrl}}\/api\/v1\/experiences\/search"
+                        },
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application\/json"
+                            },
+                            {
+                                "key": "Accept",
+                                "value": "application\/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\"city_id\":\"6ff8f7f6-1eb3-3525-be4a-3932c805afed\",\"q\":\"g\",\"categories\":[\"c90237e9-ced5-3af6-88ea-84aeaa148878\"],\"price\":[\"moderate\"],\"duration\":\"full\",\"age_tags\":[\"all\"],\"weather\":\"sun\",\"cursor\":\"architecto\",\"limit\":22}"
+                        },
+                        "description": ""
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Get experience details\nGET \/v1\/experiences\/{id}",
+                    "request": {
+                        "url": {
+                            "host": "{{baseUrl}}",
+                            "path": "api\/v1\/experiences\/:id",
+                            "query": [],
+                            "raw": "{{baseUrl}}\/api\/v1\/experiences\/:id",
+                            "variable": [
+                                {
+                                    "id": "id",
+                                    "key": "id",
+                                    "value": "architecto",
+                                    "description": "The ID of the experience."
+                                }
+                            ]
+                        },
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application\/json"
+                            },
+                            {
+                                "key": "Accept",
+                                "value": "application\/json"
+                            }
+                        ],
+                        "body": null,
+                        "description": ""
+                    },
+                    "response": []
+                },
+                {
+                    "name": "List reviews for experience\nGET \/v1\/experiences\/{experienceId}\/reviews",
+                    "request": {
+                        "url": {
+                            "host": "{{baseUrl}}",
+                            "path": "api\/v1\/experiences\/:experienceId\/reviews",
+                            "query": [],
+                            "raw": "{{baseUrl}}\/api\/v1\/experiences\/:experienceId\/reviews",
+                            "variable": [
+                                {
+                                    "id": "experienceId",
+                                    "key": "experienceId",
+                                    "value": "architecto",
+                                    "description": ""
+                                }
+                            ]
+                        },
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application\/json"
+                            },
+                            {
+                                "key": "Accept",
+                                "value": "application\/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\"sort\":\"rating_high\",\"cursor\":\"architecto\",\"limit\":22}"
+                        },
+                        "description": ""
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Create review\nPOST \/v1\/experiences\/{experienceId}\/reviews",
+                    "request": {
+                        "url": {
+                            "host": "{{baseUrl}}",
+                            "path": "api\/v1\/experiences\/:experienceId\/reviews",
+                            "query": [],
+                            "raw": "{{baseUrl}}\/api\/v1\/experiences\/:experienceId\/reviews",
+                            "variable": [
+                                {
+                                    "id": "experienceId",
+                                    "key": "experienceId",
+                                    "value": "architecto",
+                                    "description": ""
+                                }
+                            ]
+                        },
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application\/json"
+                            },
+                            {
+                                "key": "Accept",
+                                "value": "application\/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\"rating\":1,\"comment\":\"n\",\"tags\":[\"g\"],\"visibility\":\"private\",\"visited_at\":\"2022-02-10\",\"photo_urls\":[\"http:\\\/\\\/bailey.com\\\/\"]}"
+                        },
+                        "description": ""
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Get experiences for map view with bbox and clustering\nGET \/v1\/map\/experiences?bbox=w,s,e,n&zoom=z&limit=100",
+                    "request": {
+                        "url": {
+                            "host": "{{baseUrl}}",
+                            "path": "api\/v1\/map\/experiences",
+                            "query": [],
+                            "raw": "{{baseUrl}}\/api\/v1\/map\/experiences"
+                        },
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application\/json"
+                            },
+                            {
+                                "key": "Accept",
+                                "value": "application\/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\"bbox\":\"architecto\",\"zoom\":12,\"limit\":7}"
+                        },
+                        "description": ""
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Get current family\nGET \/v1\/family?family_id={id}",
+                    "request": {
+                        "url": {
+                            "host": "{{baseUrl}}",
+                            "path": "api\/v1\/family",
+                            "query": [],
+                            "raw": "{{baseUrl}}\/api\/v1\/family"
+                        },
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application\/json"
+                            },
+                            {
+                                "key": "Accept",
+                                "value": "application\/json"
+                            }
+                        ],
+                        "body": null,
+                        "description": ""
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Update family\nPUT \/v1\/family",
+                    "request": {
+                        "url": {
+                            "host": "{{baseUrl}}",
+                            "path": "api\/v1\/family",
+                            "query": [],
+                            "raw": "{{baseUrl}}\/api\/v1\/family"
+                        },
+                        "method": "PUT",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application\/json"
+                            },
+                            {
+                                "key": "Accept",
+                                "value": "application\/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\"family_id\":\"6ff8f7f6-1eb3-3525-be4a-3932c805afed\",\"name\":\"g\",\"type\":\"family\",\"avatar\":\"http:\\\/\\\/www.okuneva.com\\\/fugiat-sunt-nihil-accusantium-harum-mollitia.html\",\"vibe_preset\":\"k\"}"
+                        },
+                        "description": ""
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Create a new family\nPOST \/v1\/family",
+                    "request": {
+                        "url": {
+                            "host": "{{baseUrl}}",
+                            "path": "api\/v1\/family",
+                            "query": [],
+                            "raw": "{{baseUrl}}\/api\/v1\/family"
+                        },
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application\/json"
+                            },
+                            {
+                                "key": "Accept",
+                                "value": "application\/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\"name\":\"b\",\"type\":\"friends\"}"
+                        },
+                        "description": ""
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Generate invite code\nPOST \/v1\/family\/invite",
+                    "request": {
+                        "url": {
+                            "host": "{{baseUrl}}",
+                            "path": "api\/v1\/family\/invite",
+                            "query": [],
+                            "raw": "{{baseUrl}}\/api\/v1\/family\/invite"
+                        },
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application\/json"
+                            },
+                            {
+                                "key": "Accept",
+                                "value": "application\/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\"family_id\":\"6ff8f7f6-1eb3-3525-be4a-3932c805afed\",\"max_uses\":7,\"expires_in_days\":16}"
+                        },
+                        "description": ""
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Join family with invite code\nPOST \/v1\/family\/join",
+                    "request": {
+                        "url": {
+                            "host": "{{baseUrl}}",
+                            "path": "api\/v1\/family\/join",
+                            "query": [],
+                            "raw": "{{baseUrl}}\/api\/v1\/family\/join"
+                        },
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application\/json"
+                            },
+                            {
+                                "key": "Accept",
+                                "value": "application\/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\"code\":\"bngzmiyvdljnikhw\"}"
+                        },
+                        "description": ""
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Leave a family\nPOST \/v1\/family\/leave",
+                    "request": {
+                        "url": {
+                            "host": "{{baseUrl}}",
+                            "path": "api\/v1\/family\/leave",
+                            "query": [],
+                            "raw": "{{baseUrl}}\/api\/v1\/family\/leave"
+                        },
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application\/json"
+                            },
+                            {
+                                "key": "Accept",
+                                "value": "application\/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\"family_id\":\"6ff8f7f6-1eb3-3525-be4a-3932c805afed\"}"
+                        },
+                        "description": ""
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Remove a member from family (admin only)\nDELETE \/v1\/family\/{familyId}\/members\/{userId}",
+                    "request": {
+                        "url": {
+                            "host": "{{baseUrl}}",
+                            "path": "api\/v1\/family\/:familyId\/members\/:userId",
+                            "query": [],
+                            "raw": "{{baseUrl}}\/api\/v1\/family\/:familyId\/members\/:userId",
+                            "variable": [
+                                {
+                                    "id": "familyId",
+                                    "key": "familyId",
+                                    "value": "architecto",
+                                    "description": ""
+                                },
+                                {
+                                    "id": "userId",
+                                    "key": "userId",
+                                    "value": "architecto",
+                                    "description": ""
+                                }
+                            ]
+                        },
+                        "method": "DELETE",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application\/json"
+                            },
+                            {
+                                "key": "Accept",
+                                "value": "application\/json"
+                            }
+                        ],
+                        "body": null,
+                        "description": ""
+                    },
+                    "response": []
+                },
+                {
+                    "name": "List dependents in family\nGET \/v1\/family\/dependents",
+                    "request": {
+                        "url": {
+                            "host": "{{baseUrl}}",
+                            "path": "api\/v1\/family\/dependents",
+                            "query": [],
+                            "raw": "{{baseUrl}}\/api\/v1\/family\/dependents"
+                        },
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application\/json"
+                            },
+                            {
+                                "key": "Accept",
+                                "value": "application\/json"
+                            }
+                        ],
+                        "body": null,
+                        "description": ""
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Add dependent\nPOST \/v1\/family\/dependents",
+                    "request": {
+                        "url": {
+                            "host": "{{baseUrl}}",
+                            "path": "api\/v1\/family\/dependents",
+                            "query": [],
+                            "raw": "{{baseUrl}}\/api\/v1\/family\/dependents"
+                        },
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application\/json"
+                            },
+                            {
+                                "key": "Accept",
+                                "value": "application\/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\"name\":\"b\",\"birth_date\":\"2022-02-10\",\"age_group\":\"toddler\",\"avatar\":\"ngzmiy\",\"restrictions\":[\"v\"],\"interests\":[\"5707ca55-f609-3528-be8b-1baeaee1567e\"]}"
+                        },
+                        "description": ""
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Update dependent\nPUT \/v1\/family\/dependents\/{id}",
+                    "request": {
+                        "url": {
+                            "host": "{{baseUrl}}",
+                            "path": "api\/v1\/family\/dependents\/:id",
+                            "query": [],
+                            "raw": "{{baseUrl}}\/api\/v1\/family\/dependents\/:id",
+                            "variable": [
+                                {
+                                    "id": "id",
+                                    "key": "id",
+                                    "value": "architecto",
+                                    "description": "The ID of the dependent."
+                                }
+                            ]
+                        },
+                        "method": "PUT",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application\/json"
+                            },
+                            {
+                                "key": "Accept",
+                                "value": "application\/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\"name\":\"b\",\"birth_date\":\"2022-02-10\",\"age_group\":\"teen\",\"avatar\":\"ngzmiy\"}"
+                        },
+                        "description": ""
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Delete dependent\nDELETE \/v1\/family\/dependents\/{id}",
+                    "request": {
+                        "url": {
+                            "host": "{{baseUrl}}",
+                            "path": "api\/v1\/family\/dependents\/:id",
+                            "query": [],
+                            "raw": "{{baseUrl}}\/api\/v1\/family\/dependents\/:id",
+                            "variable": [
+                                {
+                                    "id": "id",
+                                    "key": "id",
+                                    "value": "architecto",
+                                    "description": "The ID of the dependent."
+                                }
+                            ]
+                        },
+                        "method": "DELETE",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application\/json"
+                            },
+                            {
+                                "key": "Accept",
+                                "value": "application\/json"
+                            }
+                        ],
+                        "body": null,
+                        "description": ""
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Get user favorites with optional list filter\nGET \/v1\/favorites?list_id={id}&cursor={cursor}",
+                    "request": {
+                        "url": {
+                            "host": "{{baseUrl}}",
+                            "path": "api\/v1\/favorites",
+                            "query": [],
+                            "raw": "{{baseUrl}}\/api\/v1\/favorites"
+                        },
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application\/json"
+                            },
+                            {
+                                "key": "Accept",
+                                "value": "application\/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\"family_id\":\"6ff8f7f6-1eb3-3525-be4a-3932c805afed\",\"list_id\":\"6b72fe4a-5b40-307c-bc24-f79acf9a1bb9\",\"cursor\":\"architecto\",\"limit\":22}"
+                        },
+                        "description": ""
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Save experience to favorites\nPOST \/v1\/favorites",
+                    "request": {
+                        "url": {
+                            "host": "{{baseUrl}}",
+                            "path": "api\/v1\/favorites",
+                            "query": [],
+                            "raw": "{{baseUrl}}\/api\/v1\/favorites"
+                        },
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application\/json"
+                            },
+                            {
+                                "key": "Accept",
+                                "value": "application\/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\"experience_id\":\"6ff8f7f6-1eb3-3525-be4a-3932c805afed\",\"list_id\":\"6b72fe4a-5b40-307c-bc24-f79acf9a1bb9\",\"family_id\":\"977e5426-8d13-3824-86aa-b092f8ae52c5\",\"scope\":\"family\"}"
+                        },
+                        "description": ""
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Remove experience from favorites\nDELETE \/v1\/favorites\/{experience_id}",
+                    "request": {
+                        "url": {
+                            "host": "{{baseUrl}}",
+                            "path": "api\/v1\/favorites\/:experience_id",
+                            "query": [],
+                            "raw": "{{baseUrl}}\/api\/v1\/favorites\/:experience_id",
+                            "variable": [
+                                {
+                                    "id": "experience_id",
+                                    "key": "experience_id",
+                                    "value": "architecto",
+                                    "description": "The ID of the experience."
+                                }
+                            ]
+                        },
+                        "method": "DELETE",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application\/json"
+                            },
+                            {
+                                "key": "Accept",
+                                "value": "application\/json"
+                            }
+                        ],
+                        "body": null,
+                        "description": ""
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Create favorite list\nPOST \/v1\/favorite-lists",
+                    "request": {
+                        "url": {
+                            "host": "{{baseUrl}}",
+                            "path": "api\/v1\/favorite-lists",
+                            "query": [],
+                            "raw": "{{baseUrl}}\/api\/v1\/favorite-lists"
+                        },
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application\/json"
+                            },
+                            {
+                                "key": "Accept",
+                                "value": "application\/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\"name\":\"b\",\"emoji\":\"ngzmiy\"}"
+                        },
+                        "description": ""
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Update favorite list\nPUT \/v1\/favorite-lists\/{id}",
+                    "request": {
+                        "url": {
+                            "host": "{{baseUrl}}",
+                            "path": "api\/v1\/favorite-lists\/:id",
+                            "query": [],
+                            "raw": "{{baseUrl}}\/api\/v1\/favorite-lists\/:id",
+                            "variable": [
+                                {
+                                    "id": "id",
+                                    "key": "id",
+                                    "value": "architecto",
+                                    "description": "The ID of the favorite list."
+                                }
+                            ]
+                        },
+                        "method": "PUT",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application\/json"
+                            },
+                            {
+                                "key": "Accept",
+                                "value": "application\/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\"name\":\"b\",\"emoji\":\"ngzmiy\"}"
+                        },
+                        "description": ""
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Delete favorite list\nDELETE \/v1\/favorite-lists\/{id}",
+                    "request": {
+                        "url": {
+                            "host": "{{baseUrl}}",
+                            "path": "api\/v1\/favorite-lists\/:id",
+                            "query": [],
+                            "raw": "{{baseUrl}}\/api\/v1\/favorite-lists\/:id",
+                            "variable": [
+                                {
+                                    "id": "id",
+                                    "key": "id",
+                                    "value": "architecto",
+                                    "description": "The ID of the favorite list."
+                                }
+                            ]
+                        },
+                        "method": "DELETE",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application\/json"
+                            },
+                            {
+                                "key": "Accept",
+                                "value": "application\/json"
+                            }
+                        ],
+                        "body": null,
+                        "description": ""
+                    },
+                    "response": []
+                },
+                {
+                    "name": "List user plans\nGET \/v1\/plans",
+                    "request": {
+                        "url": {
+                            "host": "{{baseUrl}}",
+                            "path": "api\/v1\/plans",
+                            "query": [],
+                            "raw": "{{baseUrl}}\/api\/v1\/plans"
+                        },
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application\/json"
+                            },
+                            {
+                                "key": "Accept",
+                                "value": "application\/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\"status\":\"completed\",\"cursor\":\"architecto\",\"limit\":22}"
+                        },
+                        "description": ""
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Create a plan\nPOST \/v1\/plans",
+                    "request": {
+                        "url": {
+                            "host": "{{baseUrl}}",
+                            "path": "api\/v1\/plans",
+                            "query": [],
+                            "raw": "{{baseUrl}}\/api\/v1\/plans"
+                        },
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application\/json"
+                            },
+                            {
+                                "key": "Accept",
+                                "value": "application\/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\"title\":\"b\",\"date\":\"2052-02-11\",\"family_id\":\"a4855dc5-0acb-33c3-b921-f4291f719ca0\",\"experience_ids\":[\"c90237e9-ced5-3af6-88ea-84aeaa148878\"]}"
+                        },
+                        "description": ""
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Get plan details\nGET \/v1\/plans\/{id}",
+                    "request": {
+                        "url": {
+                            "host": "{{baseUrl}}",
+                            "path": "api\/v1\/plans\/:id",
+                            "query": [],
+                            "raw": "{{baseUrl}}\/api\/v1\/plans\/:id",
+                            "variable": [
+                                {
+                                    "id": "id",
+                                    "key": "id",
+                                    "value": "architecto",
+                                    "description": "The ID of the plan."
+                                }
+                            ]
+                        },
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application\/json"
+                            },
+                            {
+                                "key": "Accept",
+                                "value": "application\/json"
+                            }
+                        ],
+                        "body": null,
+                        "description": ""
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Update plan\nPUT \/v1\/plans\/{id}",
+                    "request": {
+                        "url": {
+                            "host": "{{baseUrl}}",
+                            "path": "api\/v1\/plans\/:id",
+                            "query": [],
+                            "raw": "{{baseUrl}}\/api\/v1\/plans\/:id",
+                            "variable": [
+                                {
+                                    "id": "id",
+                                    "key": "id",
+                                    "value": "architecto",
+                                    "description": "The ID of the plan."
+                                }
+                            ]
+                        },
+                        "method": "PUT",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application\/json"
+                            },
+                            {
+                                "key": "Accept",
+                                "value": "application\/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\"title\":\"b\",\"date\":\"2026-01-18T06:13:57\",\"status\":\"completed\",\"notes\":\"n\"}"
+                        },
+                        "description": ""
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Delete plan\nDELETE \/v1\/plans\/{id}",
+                    "request": {
+                        "url": {
+                            "host": "{{baseUrl}}",
+                            "path": "api\/v1\/plans\/:id",
+                            "query": [],
+                            "raw": "{{baseUrl}}\/api\/v1\/plans\/:id",
+                            "variable": [
+                                {
+                                    "id": "id",
+                                    "key": "id",
+                                    "value": "architecto",
+                                    "description": "The ID of the plan."
+                                }
+                            ]
+                        },
+                        "method": "DELETE",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application\/json"
+                            },
+                            {
+                                "key": "Accept",
+                                "value": "application\/json"
+                            }
+                        ],
+                        "body": null,
+                        "description": ""
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Mark plan as complete\nPOST \/v1\/plans\/{id}\/complete",
+                    "request": {
+                        "url": {
+                            "host": "{{baseUrl}}",
+                            "path": "api\/v1\/plans\/:id\/complete",
+                            "query": [],
+                            "raw": "{{baseUrl}}\/api\/v1\/plans\/:id\/complete",
+                            "variable": [
+                                {
+                                    "id": "id",
+                                    "key": "id",
+                                    "value": "architecto",
+                                    "description": "The ID of the plan."
+                                }
+                            ]
+                        },
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application\/json"
+                            },
+                            {
+                                "key": "Accept",
+                                "value": "application\/json"
+                            }
+                        ],
+                        "body": null,
+                        "description": ""
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Duplicate plan\nPOST \/v1\/plans\/{id}\/duplicate",
+                    "request": {
+                        "url": {
+                            "host": "{{baseUrl}}",
+                            "path": "api\/v1\/plans\/:id\/duplicate",
+                            "query": [],
+                            "raw": "{{baseUrl}}\/api\/v1\/plans\/:id\/duplicate",
+                            "variable": [
+                                {
+                                    "id": "id",
+                                    "key": "id",
+                                    "value": "architecto",
+                                    "description": "The ID of the plan."
+                                }
+                            ]
+                        },
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application\/json"
+                            },
+                            {
+                                "key": "Accept",
+                                "value": "application\/json"
+                            }
+                        ],
+                        "body": null,
+                        "description": ""
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Add experience to plan\nPOST \/v1\/plans\/{id}\/experiences",
+                    "request": {
+                        "url": {
+                            "host": "{{baseUrl}}",
+                            "path": "api\/v1\/plans\/:id\/experiences",
+                            "query": [],
+                            "raw": "{{baseUrl}}\/api\/v1\/plans\/:id\/experiences",
+                            "variable": [
+                                {
+                                    "id": "id",
+                                    "key": "id",
+                                    "value": "architecto",
+                                    "description": "The ID of the plan."
+                                }
+                            ]
+                        },
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application\/json"
+                            },
+                            {
+                                "key": "Accept",
+                                "value": "application\/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\"experience_id\":\"6ff8f7f6-1eb3-3525-be4a-3932c805afed\",\"time_slot\":\"morning\",\"notes\":\"g\"}"
+                        },
+                        "description": ""
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Update experience in plan\nPUT \/v1\/plans\/{id}\/experiences\/{expId}",
+                    "request": {
+                        "url": {
+                            "host": "{{baseUrl}}",
+                            "path": "api\/v1\/plans\/:id\/experiences\/:expId",
+                            "query": [],
+                            "raw": "{{baseUrl}}\/api\/v1\/plans\/:id\/experiences\/:expId",
+                            "variable": [
+                                {
+                                    "id": "id",
+                                    "key": "id",
+                                    "value": "architecto",
+                                    "description": "The ID of the plan."
+                                },
+                                {
+                                    "id": "expId",
+                                    "key": "expId",
+                                    "value": "architecto",
+                                    "description": ""
+                                }
+                            ]
+                        },
+                        "method": "PUT",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application\/json"
+                            },
+                            {
+                                "key": "Accept",
+                                "value": "application\/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\"order\":27,\"time_slot\":\"evening\",\"notes\":\"n\"}"
+                        },
+                        "description": ""
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Remove experience from plan\nDELETE \/v1\/plans\/{id}\/experiences\/{expId}",
+                    "request": {
+                        "url": {
+                            "host": "{{baseUrl}}",
+                            "path": "api\/v1\/plans\/:id\/experiences\/:expId",
+                            "query": [],
+                            "raw": "{{baseUrl}}\/api\/v1\/plans\/:id\/experiences\/:expId",
+                            "variable": [
+                                {
+                                    "id": "id",
+                                    "key": "id",
+                                    "value": "architecto",
+                                    "description": "The ID of the plan."
+                                },
+                                {
+                                    "id": "expId",
+                                    "key": "expId",
+                                    "value": "architecto",
+                                    "description": ""
+                                }
+                            ]
+                        },
+                        "method": "DELETE",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application\/json"
+                            },
+                            {
+                                "key": "Accept",
+                                "value": "application\/json"
+                            }
+                        ],
+                        "body": null,
+                        "description": ""
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Invite collaborator\nPOST \/v1\/plans\/{id}\/collaborators",
+                    "request": {
+                        "url": {
+                            "host": "{{baseUrl}}",
+                            "path": "api\/v1\/plans\/:id\/collaborators",
+                            "query": [],
+                            "raw": "{{baseUrl}}\/api\/v1\/plans\/:id\/collaborators",
+                            "variable": [
+                                {
+                                    "id": "id",
+                                    "key": "id",
+                                    "value": "architecto",
+                                    "description": "The ID of the plan."
+                                }
+                            ]
+                        },
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application\/json"
+                            },
+                            {
+                                "key": "Accept",
+                                "value": "application\/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\"user_id\":\"6ff8f7f6-1eb3-3525-be4a-3932c805afed\",\"role\":\"viewer\"}"
+                        },
+                        "description": ""
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Remove collaborator\nDELETE \/v1\/plans\/{id}\/collaborators\/{userId}",
+                    "request": {
+                        "url": {
+                            "host": "{{baseUrl}}",
+                            "path": "api\/v1\/plans\/:id\/collaborators\/:userId",
+                            "query": [],
+                            "raw": "{{baseUrl}}\/api\/v1\/plans\/:id\/collaborators\/:userId",
+                            "variable": [
+                                {
+                                    "id": "id",
+                                    "key": "id",
+                                    "value": "architecto",
+                                    "description": "The ID of the plan."
+                                },
+                                {
+                                    "id": "userId",
+                                    "key": "userId",
+                                    "value": "architecto",
+                                    "description": ""
+                                }
+                            ]
+                        },
+                        "method": "DELETE",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application\/json"
+                            },
+                            {
+                                "key": "Accept",
+                                "value": "application\/json"
+                            }
+                        ],
+                        "body": null,
+                        "description": ""
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Update review\nPUT \/v1\/reviews\/{id}",
+                    "request": {
+                        "url": {
+                            "host": "{{baseUrl}}",
+                            "path": "api\/v1\/reviews\/:id",
+                            "query": [],
+                            "raw": "{{baseUrl}}\/api\/v1\/reviews\/:id",
+                            "variable": [
+                                {
+                                    "id": "id",
+                                    "key": "id",
+                                    "value": "architecto",
+                                    "description": "The ID of the review."
+                                }
+                            ]
+                        },
+                        "method": "PUT",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application\/json"
+                            },
+                            {
+                                "key": "Accept",
+                                "value": "application\/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\"rating\":1,\"comment\":\"n\",\"tags\":[\"g\"]}"
+                        },
+                        "description": ""
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Mark review as helpful\nPOST \/v1\/reviews\/{id}\/helpful",
+                    "request": {
+                        "url": {
+                            "host": "{{baseUrl}}",
+                            "path": "api\/v1\/reviews\/:id\/helpful",
+                            "query": [],
+                            "raw": "{{baseUrl}}\/api\/v1\/reviews\/:id\/helpful",
+                            "variable": [
+                                {
+                                    "id": "id",
+                                    "key": "id",
+                                    "value": "architecto",
+                                    "description": "The ID of the review."
+                                }
+                            ]
+                        },
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application\/json"
+                            },
+                            {
+                                "key": "Accept",
+                                "value": "application\/json"
+                            }
+                        ],
+                        "body": null,
+                        "description": ""
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Delete review (soft delete)\nDELETE \/v1\/reviews\/{id}",
+                    "request": {
+                        "url": {
+                            "host": "{{baseUrl}}",
+                            "path": "api\/v1\/reviews\/:id",
+                            "query": [],
+                            "raw": "{{baseUrl}}\/api\/v1\/reviews\/:id",
+                            "variable": [
+                                {
+                                    "id": "id",
+                                    "key": "id",
+                                    "value": "architecto",
+                                    "description": "The ID of the review."
+                                }
+                            ]
+                        },
+                        "method": "DELETE",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application\/json"
+                            },
+                            {
+                                "key": "Accept",
+                                "value": "application\/json"
+                            }
+                        ],
+                        "body": null,
+                        "description": ""
+                    },
+                    "response": []
+                },
+                {
+                    "name": "List family memories\nGET \/v1\/memories",
+                    "request": {
+                        "url": {
+                            "host": "{{baseUrl}}",
+                            "path": "api\/v1\/memories",
+                            "query": [],
+                            "raw": "{{baseUrl}}\/api\/v1\/memories"
+                        },
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application\/json"
+                            },
+                            {
+                                "key": "Accept",
+                                "value": "application\/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\"family_id\":\"6ff8f7f6-1eb3-3525-be4a-3932c805afed\",\"experience_id\":\"6b72fe4a-5b40-307c-bc24-f79acf9a1bb9\",\"cursor\":\"architecto\",\"limit\":22}"
+                        },
+                        "description": ""
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Upload memory\nPOST \/v1\/memories",
+                    "request": {
+                        "url": {
+                            "host": "{{baseUrl}}",
+                            "path": "api\/v1\/memories",
+                            "query": [],
+                            "raw": "{{baseUrl}}\/api\/v1\/memories"
+                        },
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application\/json"
+                            },
+                            {
+                                "key": "Accept",
+                                "value": "application\/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\"image_url\":\"http:\\\/\\\/www.bailey.biz\\\/quos-velit-et-fugiat-sunt-nihil-accusantium-harum.html\",\"thumbnail_url\":\"https:\\\/\\\/www.runte.com\\\/ab-provident-perspiciatis-quo-omnis-nostrum-aut-adipisci\",\"caption\":\"p\",\"experience_id\":\"7212c28d-f9ab-3dd7-af8a-06584a0d4cb7\",\"plan_id\":\"0a9446d3-4070-3757-8926-67a9d2adbc0e\",\"family_id\":\"c68e0767-6220-31fb-a489-61093ff79529\",\"visibility\":\"public\",\"taken_at\":\"2026-01-18T06:13:57\"}"
+                        },
+                        "description": ""
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Get memory details\nGET \/v1\/memories\/{id}",
+                    "request": {
+                        "url": {
+                            "host": "{{baseUrl}}",
+                            "path": "api\/v1\/memories\/:id",
+                            "query": [],
+                            "raw": "{{baseUrl}}\/api\/v1\/memories\/:id",
+                            "variable": [
+                                {
+                                    "id": "id",
+                                    "key": "id",
+                                    "value": "architecto",
+                                    "description": "The ID of the memory."
+                                }
+                            ]
+                        },
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application\/json"
+                            },
+                            {
+                                "key": "Accept",
+                                "value": "application\/json"
+                            }
+                        ],
+                        "body": null,
+                        "description": ""
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Add reaction to memory\nPOST \/v1\/memories\/{id}\/reactions",
+                    "request": {
+                        "url": {
+                            "host": "{{baseUrl}}",
+                            "path": "api\/v1\/memories\/:id\/reactions",
+                            "query": [],
+                            "raw": "{{baseUrl}}\/api\/v1\/memories\/:id\/reactions",
+                            "variable": [
+                                {
+                                    "id": "id",
+                                    "key": "id",
+                                    "value": "architecto",
+                                    "description": "The ID of the memory."
+                                }
+                            ]
+                        },
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application\/json"
+                            },
+                            {
+                                "key": "Accept",
+                                "value": "application\/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\"emoji\":\"bngzmi\"}"
+                        },
+                        "description": ""
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Add comment to memory\nPOST \/v1\/memories\/{id}\/comments",
+                    "request": {
+                        "url": {
+                            "host": "{{baseUrl}}",
+                            "path": "api\/v1\/memories\/:id\/comments",
+                            "query": [],
+                            "raw": "{{baseUrl}}\/api\/v1\/memories\/:id\/comments",
+                            "variable": [
+                                {
+                                    "id": "id",
+                                    "key": "id",
+                                    "value": "architecto",
+                                    "description": "The ID of the memory."
+                                }
+                            ]
+                        },
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application\/json"
+                            },
+                            {
+                                "key": "Accept",
+                                "value": "application\/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\"content\":\"b\"}"
+                        },
+                        "description": ""
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Delete memory\nDELETE \/v1\/memories\/{id}",
+                    "request": {
+                        "url": {
+                            "host": "{{baseUrl}}",
+                            "path": "api\/v1\/memories\/:id",
+                            "query": [],
+                            "raw": "{{baseUrl}}\/api\/v1\/memories\/:id",
+                            "variable": [
+                                {
+                                    "id": "id",
+                                    "key": "id",
+                                    "value": "architecto",
+                                    "description": "The ID of the memory."
+                                }
+                            ]
+                        },
+                        "method": "DELETE",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application\/json"
+                            },
+                            {
+                                "key": "Accept",
+                                "value": "application\/json"
+                            }
+                        ],
+                        "body": null,
+                        "description": ""
+                    },
+                    "response": []
+                },
+                {
+                    "name": "List user notifications\nGET \/v1\/notifications",
+                    "request": {
+                        "url": {
+                            "host": "{{baseUrl}}",
+                            "path": "api\/v1\/notifications",
+                            "query": [],
+                            "raw": "{{baseUrl}}\/api\/v1\/notifications"
+                        },
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application\/json"
+                            },
+                            {
+                                "key": "Accept",
+                                "value": "application\/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\"cursor\":\"architecto\",\"limit\":22}"
+                        },
+                        "description": ""
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Get unread count\nGET \/v1\/notifications\/unread-count",
+                    "request": {
+                        "url": {
+                            "host": "{{baseUrl}}",
+                            "path": "api\/v1\/notifications\/unread-count",
+                            "query": [],
+                            "raw": "{{baseUrl}}\/api\/v1\/notifications\/unread-count"
+                        },
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application\/json"
+                            },
+                            {
+                                "key": "Accept",
+                                "value": "application\/json"
+                            }
+                        ],
+                        "body": null,
+                        "description": ""
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Mark notification as read\nPATCH \/v1\/notifications\/{id}\/read",
+                    "request": {
+                        "url": {
+                            "host": "{{baseUrl}}",
+                            "path": "api\/v1\/notifications\/:id\/read",
+                            "query": [],
+                            "raw": "{{baseUrl}}\/api\/v1\/notifications\/:id\/read",
+                            "variable": [
+                                {
+                                    "id": "id",
+                                    "key": "id",
+                                    "value": "architecto",
+                                    "description": "The ID of the notification."
+                                }
+                            ]
+                        },
+                        "method": "PATCH",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application\/json"
+                            },
+                            {
+                                "key": "Accept",
+                                "value": "application\/json"
+                            }
+                        ],
+                        "body": null,
+                        "description": ""
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Mark all notifications as read\nPOST \/v1\/notifications\/read-all",
+                    "request": {
+                        "url": {
+                            "host": "{{baseUrl}}",
+                            "path": "api\/v1\/notifications\/read-all",
+                            "query": [],
+                            "raw": "{{baseUrl}}\/api\/v1\/notifications\/read-all"
+                        },
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application\/json"
+                            },
+                            {
+                                "key": "Accept",
+                                "value": "application\/json"
+                            }
+                        ],
+                        "body": null,
+                        "description": ""
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Delete notification\nDELETE \/v1\/notifications\/{id}",
+                    "request": {
+                        "url": {
+                            "host": "{{baseUrl}}",
+                            "path": "api\/v1\/notifications\/:id",
+                            "query": [],
+                            "raw": "{{baseUrl}}\/api\/v1\/notifications\/:id",
+                            "variable": [
+                                {
+                                    "id": "id",
+                                    "key": "id",
+                                    "value": "architecto",
+                                    "description": "The ID of the notification."
+                                }
+                            ]
+                        },
+                        "method": "DELETE",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application\/json"
+                            },
+                            {
+                                "key": "Accept",
+                                "value": "application\/json"
+                            }
+                        ],
+                        "body": null,
+                        "description": ""
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Get notification settings\nGET \/v1\/notifications\/settings",
+                    "request": {
+                        "url": {
+                            "host": "{{baseUrl}}",
+                            "path": "api\/v1\/notifications\/settings",
+                            "query": [],
+                            "raw": "{{baseUrl}}\/api\/v1\/notifications\/settings"
+                        },
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application\/json"
+                            },
+                            {
+                                "key": "Accept",
+                                "value": "application\/json"
+                            }
+                        ],
+                        "body": null,
+                        "description": ""
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Update notification settings\nPUT \/v1\/notifications\/settings",
+                    "request": {
+                        "url": {
+                            "host": "{{baseUrl}}",
+                            "path": "api\/v1\/notifications\/settings",
+                            "query": [],
+                            "raw": "{{baseUrl}}\/api\/v1\/notifications\/settings"
+                        },
+                        "method": "PUT",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application\/json"
+                            },
+                            {
+                                "key": "Accept",
+                                "value": "application\/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\"push_enabled\":true,\"email_enabled\":false,\"types\":[true],\"quiet_hours\":{\"enabled\":true,\"start\":\"06:13\",\"end\":\"06:13\"}}"
+                        },
+                        "description": ""
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Generate presigned URL for direct S3 upload\nPOST \/v1\/uploads\/presign",
+                    "request": {
+                        "url": {
+                            "host": "{{baseUrl}}",
+                            "path": "api\/v1\/uploads\/presign",
+                            "query": [],
+                            "raw": "{{baseUrl}}\/api\/v1\/uploads\/presign"
+                        },
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application\/json"
+                            },
+                            {
+                                "key": "Accept",
+                                "value": "application\/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\"type\":\"memory\",\"content_type\":\"image\\\/png\",\"filename\":\"b\"}"
+                        },
+                        "description": ""
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Local file upload (development only)\nPOST \/v1\/uploads\/local",
+                    "request": {
+                        "url": {
+                            "host": "{{baseUrl}}",
+                            "path": "api\/v1\/uploads\/local",
+                            "query": [],
+                            "raw": "{{baseUrl}}\/api\/v1\/uploads\/local"
+                        },
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "multipart\/form-data"
+                            },
+                            {
+                                "key": "Accept",
+                                "value": "application\/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "formdata",
+                            "formdata": [
+                                {
+                                    "key": "key",
+                                    "value": "architecto",
+                                    "type": "text",
+                                    "description": "10MB."
+                                },
+                                {
+                                    "key": "file",
+                                    "src": [],
+                                    "type": "file"
+                                }
+                            ]
+                        },
+                        "description": ""
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Submit a report\nPOST \/v1\/reports",
+                    "request": {
+                        "url": {
+                            "host": "{{baseUrl}}",
+                            "path": "api\/v1\/reports",
+                            "query": [],
+                            "raw": "{{baseUrl}}\/api\/v1\/reports"
+                        },
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application\/json"
+                            },
+                            {
+                                "key": "Accept",
+                                "value": "application\/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\"type\":\"review\",\"target_id\":\"6ff8f7f6-1eb3-3525-be4a-3932c805afed\",\"reason\":\"harassment\",\"details\":\"g\"}"
+                        },
+                        "description": ""
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Generate share link\nPOST \/v1\/share-links",
+                    "request": {
+                        "url": {
+                            "host": "{{baseUrl}}",
+                            "path": "api\/v1\/share-links",
+                            "query": [],
+                            "raw": "{{baseUrl}}\/api\/v1\/share-links"
+                        },
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application\/json"
+                            },
+                            {
+                                "key": "Accept",
+                                "value": "application\/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\"type\":\"invite\",\"target_id\":\"6ff8f7f6-1eb3-3525-be4a-3932c805afed\",\"utm_source\":\"g\",\"utm_campaign\":\"z\"}"
+                        },
+                        "description": ""
+                    },
+                    "response": []
+                }
+            ]
+        }
+    ],
+    "auth": {
+        "type": "bearer",
+        "bearer": [
+            {
+                "key": "Authorization",
+                "type": "string"
+            }
+        ]
+    }
+}

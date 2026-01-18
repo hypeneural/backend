@@ -1,0 +1,169 @@
+name: '8. Categorias'
+description: |-
+
+  Endpoints para listar categorias de experiências.
+
+  As categorias são usadas para classificar e filtrar experiências.
+  Este endpoint é público e os dados são cacheados por 24 horas.
+endpoints:
+  -
+    custom: []
+    httpMethods:
+      - GET
+    uri: api/v1/categories
+    metadata:
+      custom: []
+      groupName: '8. Categorias'
+      groupDescription: |-
+
+        Endpoints para listar categorias de experiências.
+
+        As categorias são usadas para classificar e filtrar experiências.
+        Este endpoint é público e os dados são cacheados por 24 horas.
+      subgroup: ''
+      subgroupDescription: ''
+      title: 'Listar Categorias'
+      description: |-
+        Retorna todas as categorias ativas ordenadas por prioridade.
+        Os dados são cacheados por 24 horas para melhor performance.
+      authenticated: false
+      deprecated: false
+    headers:
+      Content-Type: application/json
+      Accept: application/json
+    urlParameters: []
+    cleanUrlParameters: []
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters: []
+    cleanBodyParameters: []
+    fileParameters: []
+    responses:
+      -
+        custom: []
+        status: 200
+        content: |-
+          {
+            "data": [
+              {
+                "id": "c038d7b3-74b9-4c28-8488-b64a5dc1d791",
+                "name": "Parques",
+                "slug": "parques",
+                "emoji": "🌳",
+                "icon": "trees",
+                "color": "#22c55e",
+                "description": "Parques, praças e áreas verdes para curtir ao ar livre",
+                "experiences_count": 45
+              },
+              {
+                "id": "99da4ce7-cf82-4445-9942-51873a2c7741",
+                "name": "Museus",
+                "slug": "museus",
+                "emoji": "🏛️",
+                "icon": "landmark",
+                "color": "#8b5cf6",
+                "description": "Museus, exposições e centros culturais",
+                "experiences_count": 32
+              }
+            ],
+            "meta": {
+              "success": true,
+              "cache_until": "2026-01-19T10:00:00Z"
+            },
+            "errors": null
+          }
+        headers: []
+        description: 'Lista de categorias'
+    responseFields:
+      id:
+        custom: []
+        name: id
+        description: 'UUID da categoria.'
+        required: false
+        example: null
+        type: string
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+      name:
+        custom: []
+        name: name
+        description: 'Nome da categoria em português.'
+        required: false
+        example: null
+        type: string
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+      slug:
+        custom: []
+        name: slug
+        description: 'Identificador URL-friendly.'
+        required: false
+        example: null
+        type: string
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+      emoji:
+        custom: []
+        name: emoji
+        description: 'Emoji representativo.'
+        required: false
+        example: null
+        type: string
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+      icon:
+        custom: []
+        name: icon
+        description: 'Nome do ícone (para uso com bibliotecas de ícones).'
+        required: false
+        example: null
+        type: string
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+      color:
+        custom: []
+        name: color
+        description: 'Cor em hexadecimal (#RRGGBB).'
+        required: false
+        example: null
+        type: string
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+      description:
+        custom: []
+        name: description
+        description: 'Descrição breve da categoria.'
+        required: false
+        example: null
+        type: string
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+      experiences_count:
+        custom: []
+        name: experiences_count
+        description: 'Quantidade de experiências ativas nesta categoria.'
+        required: false
+        example: null
+        type: integer
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+    auth: []
+    controller: null
+    method: null
+    route: null

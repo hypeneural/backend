@@ -1,0 +1,331 @@
+name: '2. Onboarding'
+description: |-
+
+  Endpoints para o fluxo de onboarding de novos usuários.
+
+  Após o primeiro login, o usuário deve completar o onboarding para
+  personalizar sua experiência. O fluxo inclui:
+  1. Informar nome
+  2. Criar/nomear família
+  3. Selecionar categorias favoritas
+  4. Definir preferências (distância, preço)
+  5. Adicionar dependentes (opcional)
+endpoints:
+  -
+    custom: []
+    httpMethods:
+      - GET
+    uri: api/v1/onboarding/status
+    metadata:
+      custom: []
+      groupName: '2. Onboarding'
+      groupDescription: |-
+
+        Endpoints para o fluxo de onboarding de novos usuários.
+
+        Após o primeiro login, o usuário deve completar o onboarding para
+        personalizar sua experiência. O fluxo inclui:
+        1. Informar nome
+        2. Criar/nomear família
+        3. Selecionar categorias favoritas
+        4. Definir preferências (distância, preço)
+        5. Adicionar dependentes (opcional)
+      subgroup: ''
+      subgroupDescription: ''
+      title: 'Status do Onboarding'
+      description: |-
+        Verifica quais etapas do onboarding o usuário já completou
+        e quais ainda estão pendentes.
+      authenticated: true
+      deprecated: false
+    headers:
+      Authorization: 'Bearer {ACCESS_TOKEN}'
+      Content-Type: application/json
+      Accept: application/json
+    urlParameters: []
+    cleanUrlParameters: []
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters: []
+    cleanBodyParameters: []
+    fileParameters: []
+    responses:
+      -
+        custom: []
+        status: 200
+        content: |-
+          {
+            "data": {
+              "completed": false,
+              "steps_completed": ["name", "family"],
+              "missing_steps": ["preferences", "categories"]
+            },
+            "meta": {"success": true},
+            "errors": null
+          }
+        headers: []
+        description: 'Onboarding incompleto'
+      -
+        custom: []
+        status: 200
+        content: |-
+          {
+            "data": {
+              "completed": true,
+              "steps_completed": ["name", "family", "preferences", "categories", "dependents"],
+              "missing_steps": []
+            },
+            "meta": {"success": true},
+            "errors": null
+          }
+        headers: []
+        description: 'Onboarding completo'
+    responseFields:
+      completed:
+        custom: []
+        name: completed
+        description: 'Se todas as etapas obrigatórias foram completadas.'
+        required: false
+        example: null
+        type: boolean
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+      steps_completed:
+        custom: []
+        name: steps_completed
+        description: 'Lista de etapas já completadas.'
+        required: false
+        example: null
+        type: 'string[]'
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+      missing_steps:
+        custom: []
+        name: missing_steps
+        description: 'Lista de etapas pendentes.'
+        required: false
+        example: null
+        type: 'string[]'
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+    auth:
+      - headers
+      - Authorization
+      - 'Bearer 6g43cv8PD1aE5beadkZfhV6'
+    controller: null
+    method: null
+    route: null
+  -
+    custom: []
+    httpMethods:
+      - POST
+    uri: api/v1/onboarding/complete
+    metadata:
+      custom: []
+      groupName: '2. Onboarding'
+      groupDescription: |-
+
+        Endpoints para o fluxo de onboarding de novos usuários.
+
+        Após o primeiro login, o usuário deve completar o onboarding para
+        personalizar sua experiência. O fluxo inclui:
+        1. Informar nome
+        2. Criar/nomear família
+        3. Selecionar categorias favoritas
+        4. Definir preferências (distância, preço)
+        5. Adicionar dependentes (opcional)
+      subgroup: ''
+      subgroupDescription: ''
+      title: 'Completar Onboarding'
+      description: |-
+        Completa todas as etapas do onboarding de uma vez.
+        Este endpoint executa as seguintes ações em uma transação:
+        - Atualiza o nome do usuário
+        - Atualiza o nome da família (se fornecido)
+        - Cria as preferências da família
+        - Associa as categorias favoritas
+        - Cria os dependentes (se fornecidos)
+        - Marca o onboarding como concluído
+      authenticated: true
+      deprecated: false
+    headers:
+      Authorization: 'Bearer {ACCESS_TOKEN}'
+      Content-Type: application/json
+      Accept: application/json
+    urlParameters: []
+    cleanUrlParameters: []
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters:
+      name:
+        custom: []
+        name: name
+        description: 'Nome do usuário.'
+        required: true
+        example: 'João Silva'
+        type: string
+        enumValues: []
+        exampleWasSpecified: true
+        nullable: false
+        deprecated: false
+      favorite_categories:
+        custom: []
+        name: favorite_categories
+        description: 'Lista de UUIDs das categorias favoritas (mínimo 1).'
+        required: true
+        example:
+          - c038d7b3-74b9-4c28-8488-b64a5dc1d791
+        type: 'string[]'
+        enumValues: []
+        exampleWasSpecified: true
+        nullable: false
+        deprecated: false
+      max_distance_km:
+        custom: []
+        name: max_distance_km
+        description: 'Distância máxima em km para buscar experiências (1-100). Default: 30.'
+        required: false
+        example: 30
+        type: integer
+        enumValues: []
+        exampleWasSpecified: true
+        nullable: true
+        deprecated: false
+      default_price:
+        custom: []
+        name: default_price
+        description: 'Faixa de preço preferida: `free`, `moderate`, `top`. Default: moderate.'
+        required: false
+        example: moderate
+        type: string
+        enumValues: []
+        exampleWasSpecified: true
+        nullable: true
+        deprecated: false
+      family_name:
+        custom: []
+        name: family_name
+        description: 'Nome da família.'
+        required: false
+        example: 'Família Silva'
+        type: string
+        enumValues: []
+        exampleWasSpecified: true
+        nullable: true
+        deprecated: false
+      dependents:
+        custom: []
+        name: dependents
+        description: 'Lista de dependentes (crianças).'
+        required: false
+        example:
+          - []
+        type: 'object[]'
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: true
+        deprecated: false
+      'dependents[].name':
+        custom: []
+        name: 'dependents[].name'
+        description: 'Nome do dependente.'
+        required: true
+        example: Lucas
+        type: string
+        enumValues: []
+        exampleWasSpecified: true
+        nullable: false
+        deprecated: false
+      'dependents[].birth_date':
+        custom: []
+        name: 'dependents[].birth_date'
+        description: 'Data de nascimento (YYYY-MM-DD).'
+        required: false
+        example: '2018-05-15'
+        type: string
+        enumValues: []
+        exampleWasSpecified: true
+        nullable: true
+        deprecated: false
+      'dependents[].age_group':
+        custom: []
+        name: 'dependents[].age_group'
+        description: 'Faixa etária: `baby` (0-1), `toddler` (2-4), `kid` (5-12), `teen` (13-17).'
+        required: true
+        example: kid
+        type: string
+        enumValues: []
+        exampleWasSpecified: true
+        nullable: false
+        deprecated: false
+      'dependents[].avatar':
+        custom: []
+        name: 'dependents[].avatar'
+        description: 'Emoji para avatar do dependente.'
+        required: false
+        example: 👦
+        type: string
+        enumValues: []
+        exampleWasSpecified: true
+        nullable: true
+        deprecated: false
+    cleanBodyParameters:
+      name: 'João Silva'
+      favorite_categories:
+        - c038d7b3-74b9-4c28-8488-b64a5dc1d791
+      max_distance_km: 30
+      default_price: moderate
+      family_name: 'Família Silva'
+      dependents:
+        -
+          name: Lucas
+          birth_date: '2018-05-15'
+          age_group: kid
+          avatar: 👦
+    fileParameters: []
+    responses:
+      -
+        custom: []
+        status: 201
+        content: |-
+          {
+            "data": {
+              "message": "Onboarding completed successfully!",
+              "user": {
+                "id": "019bcf92-ecda-70a6-98ec-204362b9c61a",
+                "name": "João Silva",
+                "onboarding_completed": true
+              }
+            },
+            "meta": {"success": true},
+            "errors": null
+          }
+        headers: []
+        description: 'Onboarding completado'
+      -
+        custom: []
+        status: 422
+        content: |-
+          {
+            "data": null,
+            "meta": {"success": false},
+            "errors": [
+              {"code": "VALIDATION_ERROR", "field": "favorite_categories", "message": "O campo favorite_categories é obrigatório"}
+            ]
+          }
+        headers: []
+        description: 'Dados inválidos'
+    responseFields: []
+    auth:
+      - headers
+      - Authorization
+      - 'Bearer 6g43cv8PD1aE5beadkZfhV6'
+    controller: null
+    method: null
+    route: null

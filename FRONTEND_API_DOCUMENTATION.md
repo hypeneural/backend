@@ -1,146 +1,167 @@
-# 📱 Bora Dia Família - API Completa para Frontend
+# 📱 Bora Dia Família - Documentação Completa da API
 
-> **Base URL**: `http://localhost:8000/api/v1`  
-> **Auth**: Bearer Token no header `Authorization: Bearer {token}`  
-> **Versão**: 2.0 (Atualizado 2026-01-18)
+> **URL de Produção:** `https://api.valorsc.com.br/api/v1/`  
+> **Autenticação:** Bearer Token JWT no header `Authorization: Bearer {token}`  
+> **Content-Type:** `application/json`  
+> **Última Atualização:** 2026-01-18
 
 ---
 
-## 🚀 Antes de Começar - Executar Migrations
+## 📖 Estrutura Padrão de Resposta
 
-```bash
-# No diretório do backend
-cd backend
+Todos os endpoints seguem o mesmo formato:
 
-# Executar todas as migrations
-php artisan migrate
-
-# Rodar os seeders (dados de teste)
-php artisan db:seed
-
-# Iniciar o servidor
-php artisan serve
+```typescript
+interface ApiResponse<T> {
+  data: T | null;
+  meta: {
+    success: boolean;
+    next_cursor?: string;    // Para paginação cursor
+    has_more?: boolean;      // Indica se há mais itens
+    cache_until?: string;    // Quando o cache expira
+    unread_count?: number;   // Para notificações
+  };
+  errors: Array<{
+    code: string;            // Ex: "OTP_EXPIRED"
+    message: string;         // Mensagem em português
+    field?: string;          // Campo com erro (validação)
+  }> | null;
+}
 ```
 
-**Após migrations, o backend estará disponível em:** `http://localhost:8000`
-
 ---
 
-## 📋 Índice de Endpoints (60+ endpoints)
+## 🔐 1. AUTENTICAÇÃO
 
-| # | Área | Endpoints | Autenticação |
-|---|------|-----------|--------------|
-| 1 | [Auth](#1-autenticação) | 5 | Parcial |
-| 2 | [Onboarding](#2-onboarding) | 2 | 🔒 |
-| 3 | [Usuário](#3-usuário) | 5 | 🔒 |
-| 4 | [Home](#4-home) | 1 | 🔒 |
-| 5 | [Busca](#5-busca) | 1 | 🔒 |
-| 6 | [Mapa](#6-mapa) | 1 | 🔒 |
-| 7 | [Experiências](#7-experiências) | 1 | 🔒 |
-| 8 | [Categorias](#8-categorias) | 1 | Público |
-| 9 | [Cidades](#9-cidades) | 2 | Público |
-| 10 | [Favoritos](#10-favoritos) | 6 | 🔒 |
-| 11 | [Família](#11-família) | 11 | 🔒 |
-| 12 | [Planos](#12-planos) | 11 | 🔒 |
-| 13 | [Reviews](#13-reviews) | 6 | 🔒 |
-| 14 | [Memórias](#14-memórias) | 7 | 🔒 |
-| 15 | [Notificações](#15-notificações) | 8 | 🔒 |
-| 16 | [Uploads](#16-uploads) | 2 | 🔒 |
-| 17 | [Utilidades](#17-utilidades) | 3 | Misto |
+### 1.1 Enviar OTP
+```http
+POST /auth/otp/send
+```
 
----
+**O que faz:** Envia um código de 6 dígitos por SMS para o telefone informado.
 
-## 1. Autenticação
+**Rate Limit:** 1 request por minuto por telefone.
 
-### 1.1 `POST /auth/otp/send`
-> Enviar código OTP para telefone
+| Campo | Tipo | Obrigatório | Descrição |
+|-------|------|-------------|-----------|
+| `phone` | string | ✅ | Telefone com DDD (ex: "11999999999") |
 
-**Rate Limit:** 1/min por telefone
-
+**Request:**
 ```json
-// Request
 { "phone": "11999999999" }
+```
 
-// Response 200
+**Response 200:**
+```json
 {
   "data": {
-    "message": "Código enviado com sucesso",
-    "expires_at": "2026-01-18T01:50:00Z",
-    "code": "123456"  // ⚠️ Apenas em dev
+    "message": "Code sent successfully.",
+    "expires_at": "2026-01-18T05:32:36Z",
+    "code": "816538"
   },
   "meta": { "success": true },
   "errors": null
 }
 ```
 
+> ⚠️ O campo `code` só aparece em ambiente dev/staging para facilitar testes.
+
+**Erros Possíveis:**
+| HTTP | Código | Quando |
+|------|--------|--------|
+| 422 | `VALIDATION_ERROR` | Telefone inválido |
+| 429 | `RATE_LIMIT` | Muitas requisições (aguarde 1 min) |
+
 ---
 
-### 1.2 `POST /auth/otp/verify`
-> Verificar OTP e autenticar
+### 1.2 Verificar OTP
+```http
+POST /auth/otp/verify
+```
 
-**Lógica:**
-1. Valida código (5 tentativas máx)
-2. Se usuário não existe → cria user + family
-3. Gera JWT (1h) + refresh token (14d)
+**O que faz:** Valida o código OTP e retorna tokens de acesso. Se o usuário não existir, cria automaticamente.
 
+| Campo | Tipo | Obrigatório | Descrição |
+|-------|------|-------------|-----------|
+| `phone` | string | ✅ | Mesmo telefone usado no send |
+| `code` | string | ✅ | Código de 6 dígitos |
+| `name` | string | ✅ (novos) | Nome do usuário (obrigatório para novos) |
+| `referral_code` | string | ❌ | Código de indicação |
+
+**Request:**
 ```json
-// Request
 {
   "phone": "11999999999",
-  "code": "123456",
-  "name": "João Silva",       // Obrigatório para novos
-  "referral_code": "ABC123"   // Opcional
+  "code": "816538",
+  "name": "João Silva",
+  "referral_code": "BORA123"
 }
+```
 
-// Response 200/201
+**Response 200 (usuário existente) / 201 (novo):**
+```json
 {
   "data": {
     "user": {
-      "id": "uuid",
+      "id": "uuid-do-usuario",
       "phone": "+5511999999999",
       "name": "João Silva",
       "avatar": null,
       "is_verified": true,
-      "onboarding_completed": false,   // 🆕
-      "primary_family_id": "uuid",     // 🆕
-      "primary_city_id": null          // 🆕
+      "onboarding_completed": false,
+      "primary_family_id": "uuid-da-familia",
+      "primary_city_id": null
     },
     "tokens": {
-      "access_token": "eyJ...",
-      "refresh_token": "abc...",
+      "access_token": "eyJhbGciOiJIUzI1NiIs...",
+      "refresh_token": "dGhpcyBpcyBhIHJlZnJl...",
       "token_type": "bearer",
       "expires_in": 3600
     },
     "is_new_user": true
-  }
+  },
+  "meta": { "success": true },
+  "errors": null
 }
 ```
 
-**💡 Sugestão Frontend:**
+**Lógica de Navegação:**
 ```typescript
-// Decidir navegação após login
-if (!user.onboarding_completed) {
+if (response.data.user.onboarding_completed === false) {
   navigate('/onboarding');
 } else {
   navigate('/home');
 }
 ```
 
+**Erros Possíveis:**
+| HTTP | Código | Quando |
+|------|--------|--------|
+| 400 | `OTP_EXPIRED` | Código expirou (>5 min) |
+| 401 | `OTP_INVALID` | Código incorreto |
+| 429 | `OTP_MAX_ATTEMPTS` | 5 tentativas esgotadas |
+
 ---
 
-### 1.3 `POST /auth/refresh`
-> Renovar tokens (sem auth header)
+### 1.3 Refresh Token
+```http
+POST /auth/refresh
+```
 
+**O que faz:** Gera novos tokens usando o refresh_token. O refresh_token antigo é invalidado (one-time use).
+
+**Request:**
 ```json
-// Request
-{ "refresh_token": "abc..." }
+{ "refresh_token": "seu-refresh-token" }
+```
 
-// Response 200
+**Response 200:**
+```json
 {
   "data": {
     "tokens": {
-      "access_token": "eyJ...",
-      "refresh_token": "xyz...",
+      "access_token": "novo-access-token",
+      "refresh_token": "novo-refresh-token",
       "expires_in": 3600
     }
   }
@@ -149,31 +170,36 @@ if (!user.onboarding_completed) {
 
 ---
 
-### 1.4 `POST /auth/logout` 🔒
-> Revogar tokens
-
-```json
-// Request
-{
-  "refresh_token": "abc...",
-  "all_devices": false
-}
+### 1.4 Logout
+```http
+POST /auth/logout 🔒
 ```
+
+**O que faz:** Invalida os tokens do usuário.
+
+| Campo | Tipo | Descrição |
+|-------|------|-----------|
+| `refresh_token` | string | Token específico para revogar |
+| `all_devices` | boolean | Se `true`, revoga todos os tokens |
 
 ---
 
-### 1.5 `GET /auth/me` 🔒
-> Dados do usuário logado
+### 1.5 Dados do Usuário Logado
+```http
+GET /auth/me 🔒
+```
 
+**O que faz:** Retorna dados completos do usuário autenticado.
+
+**Response:**
 ```json
-// Response
 {
   "data": {
     "id": "uuid",
     "phone": "+5511999999999",
     "name": "João Silva",
-    "avatar": "https://...",
-    "email": null,
+    "avatar": "https://cdn.../avatar.jpg",
+    "email": "joao@email.com",
     "is_verified": true,
     "stats": {
       "xp": 500,
@@ -183,22 +209,25 @@ if (!user.onboarding_completed) {
     "primary_family": {
       "id": "uuid",
       "name": "Família Silva"
-    }
+    },
+    "created_at": "2026-01-15T10:00:00Z"
   }
 }
 ```
 
 ---
 
-## 2. Onboarding
+## 🎯 2. ONBOARDING
 
-### 2.1 `GET /onboarding/status` 🔒
-> Verificar progresso do onboarding
+### 2.1 Status do Onboarding
+```http
+GET /onboarding/status 🔒
+```
 
-**Lógica:** Verifica campos preenchidos do usuário/família
+**O que faz:** Verifica quais etapas do onboarding o usuário completou.
 
+**Response:**
 ```json
-// Response
 {
   "data": {
     "completed": false,
@@ -208,25 +237,49 @@ if (!user.onboarding_completed) {
 }
 ```
 
+**Etapas Possíveis:**
+- `name` - Nome do usuário
+- `family` - Nome da família
+- `preferences` - Distância e preço
+- `categories` - Categorias favoritas
+
 ---
 
-### 2.2 `POST /onboarding/complete` 🔒
-> Finalizar onboarding completo
+### 2.2 Completar Onboarding
+```http
+POST /onboarding/complete 🔒
+```
 
-**Lógica:**
-1. Atualiza nome do usuário
-2. Cria/atualiza família
-3. Salva preferências (distância, preço)
-4. Associa categorias favoritas
-5. Cria dependentes
-6. Marca `onboarding_completed = true`
+**O que faz:** Salva todos os dados do onboarding de uma vez.
 
+| Campo | Tipo | Obrigatório | Descrição |
+|-------|------|-------------|-----------|
+| `name` | string | ✅ | Nome do usuário |
+| `family_name` | string | ❌ | Nome da família |
+| `favorite_categories` | uuid[] | ✅ | Mínimo 1, máximo 10 IDs |
+| `max_distance_km` | number | ❌ | 1-100 (padrão: 30) |
+| `default_price` | string | ❌ | `free`, `moderate`, `top` |
+| `dependents` | object[] | ❌ | Lista de dependentes |
+
+**Schema Dependent:**
+```typescript
+interface Dependent {
+  name: string;           // Obrigatório
+  birth_date?: string;    // YYYY-MM-DD
+  age_group: 'baby' | 'toddler' | 'kid' | 'teen';
+  avatar?: string;        // Emoji
+}
+```
+
+**Request Exemplo:**
 ```json
-// Request
 {
   "name": "João Silva",
   "family_name": "Família Silva",
-  "favorite_categories": ["uuid1", "uuid2", "uuid3"],
+  "favorite_categories": [
+    "c038d7b3-74b9-4c28-8488-b64a5dc1d791",
+    "99da4ce7-cf82-4445-9942-51873a2c7741"
+  ],
   "max_distance_km": 30,
   "default_price": "moderate",
   "dependents": [
@@ -238,84 +291,55 @@ if (!user.onboarding_completed) {
     }
   ]
 }
-
-// Response 201
-{
-  "data": {
-    "message": "Onboarding completed successfully!",
-    "user": {
-      "id": "uuid",
-      "name": "João Silva",
-      "onboarding_completed": true
-    }
-  }
-}
-```
-
-**💡 Sugestão - Fluxo de Telas:**
-```
-WelcomeScreen → name
-FamilyScreen → family_name + dependents
-CategoriesScreen → favorite_categories (mín 3)
-PreferencesScreen → max_distance_km + default_price
 ```
 
 ---
 
-## 3. Usuário
+## 👤 3. USUÁRIO
 
-### 3.1 `PUT /users/me` 🔒
-> Atualizar perfil
+### 3.1 Atualizar Perfil
+```http
+PUT /users/me 🔒
+```
+
+| Campo | Tipo | Descrição |
+|-------|------|-----------|
+| `name` | string | Nome do usuário |
+| `email` | string | Email (validação) |
+
+---
+
+### 3.2 Atualizar Avatar
+```http
+PATCH /users/me/avatar 🔒
+```
 
 ```json
-// Request
-{
-  "name": "João Silva Atualizado",
-  "email": "joao@email.com"
-}
+{ "avatar_url": "https://cdn.../nova-foto.jpg" }
 ```
 
 ---
 
-### 3.2 `PATCH /users/me/avatar` 🔒
-> Atualizar avatar
-
-```json
-// Request
-{ "avatar_url": "https://cdn.../avatar.jpg" }
+### 3.3 Atualizar Localização
+```http
+POST /users/me/location 🔒
 ```
+
+| Campo | Tipo | Descrição |
+|-------|------|-----------|
+| `lat` | number | Latitude |
+| `lng` | number | Longitude |
+| `city_id` | uuid | ID da cidade (opcional) |
 
 ---
 
-### 3.3 `POST /users/me/location` 🔒
-> Atualizar localização
-
-```json
-// Request
-{
-  "lat": -23.5874,
-  "lng": -46.6576,
-  "city_id": "uuid"
-}
+### 3.4 Estatísticas de Gamificação
+```http
+GET /users/me/stats 🔒
 ```
 
----
-
-### 3.4 `GET /users/me/stats` 🔒
-> Estatísticas de gamificação
-
-**Regras de XP:**
-| Ação | XP | Limite/dia |
-|------|-----|------------|
-| Onboarding | 100 | 1× |
-| Salvar exp | 5 | 20 |
-| Review | 25 | 5 |
-| Memória | 10 | 10 |
-| Plano completo | 50 | - |
-| Referral | 100 | - |
-
+**Response:**
 ```json
-// Response
 {
   "data": {
     "xp": 1500,
@@ -329,37 +353,58 @@ PreferencesScreen → max_distance_km + default_price
     "total_plans": 8,
     "total_memories": 67,
     "badges": [
-      { "slug": "explorer", "name": "Explorador", "earned_at": "..." }
+      {
+        "slug": "explorer",
+        "name": "Explorador",
+        "icon": "🧭",
+        "earned_at": "2026-01-10T..."
+      }
     ]
   }
 }
 ```
 
+**Regras de XP:**
+| Ação | XP | Limite Diário |
+|------|-----|---------------|
+| Onboarding | 100 | 1× (única) |
+| Salvar experiência | 5 | 20 |
+| Criar review | 25 | 5 |
+| Criar memória | 10 | 10 |
+| Completar plano | 50 | - |
+| Indicação | 100 | - |
+
 ---
 
-### 3.5 `DELETE /users/me` 🔒
-> Desativar conta
+### 3.5 Desativar Conta
+```http
+DELETE /users/me 🔒
+```
 
 ```json
-// Request
 { "confirmation": "DELETE" }
 ```
 
 ---
 
-## 4. Home
+## 🏠 4. HOME
 
-### `GET /home?city_id={uuid}&lat={float}&lng={float}` 🔒
-> Endpoint unificado da home
+### 4.1 Feed Unificado
+```http
+GET /home 🔒
+```
 
-**Lógica:**
-1. Atualiza localização do usuário
-2. Busca trending do cache
-3. Calcula distâncias
-4. Conta facetas (chips)
+**O que faz:** Retorna dados personalizados para a tela inicial.
 
+**Query Params:**
+| Param | Tipo | Obrigatório | Descrição |
+|-------|------|-------------|-----------|
+| `city_id` | uuid | ✅ | ID da cidade |
+| `lat` | number | ❌ | Latitude do usuário |
+| `lng` | number | ❌ | Longitude do usuário |
+
+**Response:**
 ```json
-// Response
 {
   "data": {
     "user": {
@@ -380,7 +425,8 @@ PreferencesScreen → max_distance_km + default_price
         "average_rating": 4.8,
         "reviews_count": 156,
         "is_saved": false,
-        "category": { "name": "Parques", "emoji": "🌳" }
+        "badges": ["staff_pick"],
+        "category": { "id": "uuid", "name": "Parques", "emoji": "🌳" }
       }
     ],
     "trending": [ /* mesmo formato */ ],
@@ -391,7 +437,7 @@ PreferencesScreen → max_distance_km + default_price
       "food": 23
     },
     "upcoming_plans": [
-      { "id": "uuid", "title": "Domingo", "date": "2026-01-20" }
+      { "id": "uuid", "title": "Domingo", "date": "2026-01-20", "experiences_count": 3 }
     ]
   }
 }
@@ -399,67 +445,138 @@ PreferencesScreen → max_distance_km + default_price
 
 ---
 
-## 5. Busca
+## 🔍 5. BUSCA
 
-### `GET /experiences/search` 🔒
-> Busca com filtros e cursor pagination
+### 5.1 Buscar Experiências
+```http
+GET /experiences/search 🔒
+```
 
-**Query Params:**
+**O que faz:** Busca experiências com filtros avançados e paginação por cursor.
+
+**Query Params - Filtros:**
+
 | Param | Tipo | Descrição |
 |-------|------|-----------|
-| `city_id` | uuid | **Obrigatório** |
-| `q` | string | Busca textual |
-| `categories[]` | uuid[] | Filtro categorias |
+| `city_id` | uuid | **Obrigatório** - ID da cidade |
+| `q` | string | Texto livre (fulltext search) |
+| `categories[]` | uuid[] | IDs das categorias |
 | `price[]` | string[] | `free`, `moderate`, `top` |
-| `duration` | string | `quick`, `half`, `full` |
-| `age_tags[]` | string[] | `baby`, `toddler`, `kid`, `teen` |
+| `duration` | string | `quick` (<1h), `half` (1-3h), `full` (3h+) |
+| `age_tags[]` | string[] | `baby`, `toddler`, `kid`, `teen`, `all` |
 | `weather` | string | `sun`, `rain`, `any` |
-| `has_reviews` | bool | Apenas com reviews |
-| `min_rating` | float | Rating mínimo |
+| `has_reviews` | boolean | Apenas com reviews |
+| `min_rating` | number | Rating mínimo (ex: 4.0) |
 | `sort` | string | `trending`, `rating`, `distance`, `saves` |
-| `cursor` | string | Próxima página |
-| `limit` | int | 1-50 (default: 20) |
+| `cursor` | string | Cursor da próxima página |
+| `limit` | number | 1-50 (padrão: 20) |
 
+**Exemplo de Request:**
+```
+GET /experiences/search?city_id=UUID&categories[]=UUID1&price[]=free&age_tags[]=kid&sort=trending&limit=20
+```
+
+**Response:**
 ```json
-// Response
 {
   "data": {
-    "results": [ /* ExperienceCard[] */ ],
+    "results": [
+      {
+        "id": "uuid",
+        "title": "Piquenique no Parque",
+        "mission_title": "Crie memórias",
+        "cover_image": "https://...",
+        "distance_km": 2.5,
+        "price_level": "free",
+        "duration_bucket": "half",
+        "average_rating": 4.7,
+        "reviews_count": 45,
+        "saves_count": 230,
+        "is_saved": true,
+        "badges": ["trending"],
+        "category": { "id": "uuid", "name": "Parques", "emoji": "🌳" }
+      }
+    ],
     "facets": {
-      "categories": [{ "id": "uuid", "name": "Parques", "count": 15 }],
-      "price_level": [{ "value": "free", "count": 23 }],
-      "age_tags": [{ "value": "kid", "count": 45 }]
+      "categories": [
+        { "id": "uuid", "name": "Parques", "emoji": "🌳", "count": 15 }
+      ],
+      "price_level": [
+        { "value": "free", "label": "Grátis", "count": 23 }
+      ],
+      "age_tags": [
+        { "value": "kid", "label": "Crianças", "count": 45 }
+      ],
+      "duration": [
+        { "value": "half", "label": "1-3 horas", "count": 25 }
+      ]
     },
     "applied_filters": { "categories": ["uuid1"] },
     "total_estimate": 156
   },
   "meta": {
-    "next_cursor": "eyJ...",
+    "success": true,
+    "next_cursor": "eyJzY29yZSI6ODUuMn0=",
     "has_more": true
   }
 }
 ```
 
+**Infinite Scroll:**
+```typescript
+const { data, fetchNextPage, hasNextPage } = useInfiniteQuery({
+  queryKey: ['search', cityId, filters],
+  queryFn: ({ pageParam }) => 
+    api.get('/experiences/search', { 
+      params: { ...filters, cursor: pageParam } 
+    }),
+  getNextPageParam: (lastPage) => 
+    lastPage.meta.has_more ? lastPage.meta.next_cursor : undefined,
+});
+```
+
 ---
 
-## 6. Mapa
+## 🗺️ 6. MAPA
 
-### `GET /map/experiences?bbox={w,s,e,n}&zoom={int}` 🔒
-> Experiências no viewport
+### 6.1 Experiências no Mapa
+```http
+GET /map/experiences 🔒
+```
 
-**Lógica:**
-- `zoom >= 14`: pontos individuais
-- `zoom < 14`: clusters
+**Query Params:**
+| Param | Tipo | Descrição |
+|-------|------|-----------|
+| `bbox` | string | `west,south,east,north` (obrigatório) |
+| `zoom` | number | 1-22 (obrigatório) |
+| `categories[]` | uuid[] | Filtrar por categorias |
+| `limit` | number | 1-200 (padrão: 100) |
 
+**Lógica de Clustering:**
+- `zoom >= 14`: Retorna pontos individuais
+- `zoom < 14`: Retorna clusters
+
+**Response:**
 ```json
-// Response
 {
   "data": {
     "points": [
-      { "id": "uuid", "lat": -23.58, "lng": -46.65, "title": "..." }
+      {
+        "id": "uuid",
+        "lat": -23.5874,
+        "lng": -46.6576,
+        "title": "Parque Ibirapuera",
+        "cover_image": "https://...",
+        "category_emoji": "🌳"
+      }
     ],
     "clusters": [
-      { "lat": -23.55, "lng": -46.63, "count": 12 }
+      {
+        "lat": -23.55,
+        "lng": -46.63,
+        "count": 12,
+        "bounds": { "west": -46.65, "south": -23.58, "east": -46.61, "north": -23.52 }
+      }
     ]
   }
 }
@@ -467,36 +584,105 @@ PreferencesScreen → max_distance_km + default_price
 
 ---
 
-## 7. Experiências
+## 📍 7. EXPERIÊNCIAS
 
-### `GET /experiences/{id}` 🔒
-> Detalhes completos
+### 7.1 Detalhes da Experiência
+```http
+GET /experiences/{id} 🔒
+```
 
-**Headers:** `ETag` para cache condicional
+**Headers de Cache:**
+- `ETag` - Para conditional requests
+- `Cache-Control: private, max-age=600`
 
+**Response Completa:**
 ```json
-// Response (resumido)
 {
   "data": {
     "id": "uuid",
     "title": "Piquenique no Ibirapuera",
-    "mission_title": "Descubra a magia",
-    "summary": "...",
-    "category": { "name": "Parques", "emoji": "🌳", "color": "#22c55e" },
+    "mission_title": "Descubra a magia do maior parque de SP",
+    "summary": "Uma experiência incrível...",
+    
+    "category": {
+      "id": "uuid",
+      "name": "Parques",
+      "emoji": "🌳",
+      "color": "#22c55e"
+    },
+    
     "badges": ["staff_pick", "trending"],
     "age_tags": ["toddler", "kid", "teen"],
-    "duration": { "label": "1-2h", "minutes_min": 60, "minutes_max": 120 },
-    "price": { "level": "free", "label": "Grátis" },
-    "practical": { "parking": true, "bathroom": true, "stroller": true },
-    "tips": ["Chegue cedo", "Leve protetor solar"],
-    "location": { "address": "Av. Pedro Álvares Cabral", "neighborhood": "Vila Mariana" },
+    "vibe": ["relaxante", "divertido"],
+    
+    "duration": {
+      "label": "1-2h",
+      "minutes_min": 60,
+      "minutes_max": 120
+    },
+    
+    "price": {
+      "level": "free",
+      "label": "Entrada gratuita"
+    },
+    
+    "weather": ["sun", "any"],
+    
+    "practical": {
+      "parking": true,
+      "bathroom": true,
+      "food": true,
+      "stroller": true,
+      "accessibility": false,
+      "changing_table": true
+    },
+    
+    "tips": [
+      "Chegue cedo para garantir lugar na sombra",
+      "Leve protetor solar e água"
+    ],
+    
+    "location": {
+      "place_name": "Parque Ibirapuera",
+      "address": "Av. Pedro Álvares Cabral, s/n",
+      "neighborhood": "Vila Mariana",
+      "city": "São Paulo",
+      "state": "SP"
+    },
+    
     "coords": { "lat": -23.5874, "lng": -46.6576 },
-    "images": { "cover": "url", "gallery": ["url1", "url2"] },
-    "stats": { "saves_count": 234, "reviews_count": 56, "average_rating": 4.7 },
-    "recent_reviews": [ /* Review[] */ ],
-    "related": [ /* ExperiencePreview[] */ ],
-    "is_saved": false,
+    
+    "images": {
+      "cover": "https://...",
+      "gallery": ["https://...", "https://..."]
+    },
+    
+    "stats": {
+      "saves_count": 234,
+      "reviews_count": 56,
+      "average_rating": 4.7,
+      "trending_score": 85.3
+    },
+    
+    "review_distribution": { "5": 30, "4": 18, "3": 5, "2": 1, "1": 2 },
+    
+    "recent_reviews": [
+      {
+        "id": "uuid",
+        "user_name": "Maria",
+        "user_avatar": "https://...",
+        "rating": 5,
+        "comment": "Adoramos!",
+        "created_at": "2026-01-15T..."
+      }
+    ],
+    
+    "related": [
+      { "id": "uuid", "title": "Parque Villa-Lobos", "cover_image": "https://...", "distance_km": 5.2 }
+    ],
+    
     "user_review": null,
+    "is_saved": false,
     "distance_km": 3.2
   }
 }
@@ -504,248 +690,306 @@ PreferencesScreen → max_distance_km + default_price
 
 ---
 
-## 8. Categorias
+## 📂 8. CATEGORIAS
 
-### `GET /categories` (Público)
-> Listar todas
+### 8.1 Listar Categorias
+```http
+GET /categories (Público)
+```
 
-**Cache:** 24h
+**Cache:** 24 horas
 
+**Response:**
 ```json
-// Response
 {
   "data": [
     {
-      "id": "uuid",
+      "id": "c038d7b3-74b9-4c28-8488-b64a5dc1d791",
       "name": "Parques",
       "slug": "parques",
       "emoji": "🌳",
+      "icon": "trees",
       "color": "#22c55e",
-      "experiences_count": 45
+      "description": "Parques, praças e áreas verdes",
+      "experiences_count": 8
     }
   ],
-  "meta": { "cache_until": "2026-01-19T..." }
+  "meta": { 
+    "success": true, 
+    "cache_until": "2026-01-19T05:27:20Z" 
+  }
 }
 ```
 
+**Categorias Disponíveis:**
+| Slug | Nome | Emoji | Cor |
+|------|------|-------|-----|
+| `parques` | Parques | 🌳 | #22c55e |
+| `museus` | Museus | 🏛️ | #8b5cf6 |
+| `aventura` | Aventura | 🎢 | #ef4444 |
+| `gastronomia` | Gastronomia | 🍕 | #f59e0b |
+| `natureza` | Natureza | 🏞️ | #06b6d4 |
+
 ---
 
-## 9. Cidades
+## 🏙️ 9. CIDADES
 
-### 9.1 `GET /cities?q={query}&limit={int}` (Público)
-> Buscar cidades
+### 9.1 Buscar Cidades
+```http
+GET /cities (Público)
+```
 
+| Param | Tipo | Descrição |
+|-------|------|-----------|
+| `q` | string | Texto de busca |
+| `limit` | number | 1-20 (padrão: 10) |
+
+**Response:**
 ```json
-// Response
 {
   "data": [
-    { "id": "uuid", "name": "São Paulo", "state": "SP", "display_name": "São Paulo, SP" }
+    {
+      "id": "edbca93c-2f01-4e17-af0a-53b1ccb4bf90",
+      "name": "São Paulo",
+      "slug": "sao-paulo",
+      "state": "SP",
+      "country": "BR",
+      "lat": -23.5505,
+      "lng": -46.6333,
+      "timezone": "America/Sao_Paulo",
+      "display_name": "São Paulo, SP"
+    }
   ]
 }
 ```
 
-### 9.2 `GET /cities/{id}` (Público)
-> Detalhes da cidade
-
 ---
 
-## 10. Favoritos
-
-| Endpoint | Método | Descrição |
-|----------|--------|-----------|
-| `/favorites` | GET | Listar salvos |
-| `/favorites` | POST | Salvar experiência |
-| `/favorites/{exp_id}` | DELETE | Remover |
-| `/favorite-lists` | POST | Criar lista |
-| `/favorite-lists/{id}` | PUT | Atualizar lista |
-| `/favorite-lists/{id}` | DELETE | Excluir lista |
-
-```json
-// POST /favorites
-{ "experience_id": "uuid", "list_id": "uuid" }
+### 9.2 Detalhes da Cidade
+```http
+GET /cities/{id} (Público)
 ```
 
----
-
-## 11. Família
-
-| Endpoint | Método | Descrição |
-|----------|--------|-----------|
-| `/family` | GET | Dados da família |
-| `/family` | POST | Criar família |
-| `/family` | PUT | Atualizar |
-| `/family/invite` | POST | Gerar convite |
-| `/family/join` | POST | Entrar com código |
-| `/family/leave` | POST | Sair da família |
-| `/family/{id}/members/{userId}` | DELETE | Remover membro |
-| `/family/dependents` | GET | Listar dependentes |
-| `/family/dependents` | POST | Criar dependente |
-| `/family/dependents/{id}` | PUT | Atualizar |
-| `/family/dependents/{id}` | DELETE | Remover |
-
+**Response:**
 ```json
-// POST /family/invite
-{ "max_uses": 5, "expires_in_days": 7 }
-
-// Response
-{ "data": { "code": "BORA-XK9MP2", "expires_at": "..." } }
-```
-
----
-
-## 12. Planos
-
-| Endpoint | Método | Descrição |
-|----------|--------|-----------|
-| `/plans` | GET | Listar planos |
-| `/plans` | POST | Criar |
-| `/plans/{id}` | GET | Detalhes |
-| `/plans/{id}` | PUT | Atualizar |
-| `/plans/{id}` | DELETE | Excluir |
-| `/plans/{id}/complete` | POST | Marcar concluído |
-| `/plans/{id}/duplicate` | POST | Duplicar |
-| `/plans/{id}/experiences` | POST | Adicionar exp |
-| `/plans/{id}/experiences/{expId}` | PUT | Atualizar ordem |
-| `/plans/{id}/experiences/{expId}` | DELETE | Remover exp |
-| `/plans/{id}/collaborators` | POST | Convidar |
-| `/plans/{id}/collaborators/{userId}` | DELETE | Remover |
-
-```json
-// POST /plans
 {
-  "title": "Domingo no Parque",
-  "date": "2026-01-20",
-  "experience_ids": ["uuid1", "uuid2"]
+  "data": {
+    "id": "uuid",
+    "name": "São Paulo",
+    "state": "SP",
+    "population": 12400000,
+    "places_count": 10,
+    "experiences_count": 20
+  }
 }
+```
 
-// POST /plans/{id}/experiences
+---
+
+## ❤️ 10. FAVORITOS
+
+### Endpoints de Favoritos
+
+| Método | Endpoint | Descrição |
+|--------|----------|-----------|
+| GET | `/favorites` | Listar salvos |
+| POST | `/favorites` | Salvar experiência |
+| DELETE | `/favorites/{experience_id}` | Remover |
+| POST | `/favorite-lists` | Criar lista |
+| PUT | `/favorite-lists/{id}` | Atualizar lista |
+| DELETE | `/favorite-lists/{id}` | Excluir lista |
+
+**GET /favorites Query Params:**
+- `sort`: `saved_at` (padrão), `name`, `distance`
+- `list_id`: UUID da lista específica
+
+**POST /favorites:**
+```json
 {
   "experience_id": "uuid",
-  "time_slot": "morning",
-  "notes": "Levar lanche"
+  "list_id": "uuid"
 }
 ```
 
 ---
 
-## 13. Reviews
+## 👨‍👩‍👧‍👦 11. FAMÍLIA
 
-| Endpoint | Método | Descrição |
-|----------|--------|-----------|
-| `/experiences/{id}/reviews` | GET | Listar |
-| `/experiences/{id}/reviews` | POST | Criar |
-| `/reviews/{id}` | PUT | Atualizar |
-| `/reviews/{id}` | DELETE | Excluir |
-| `/reviews/{id}/helpful` | POST | Marcar útil |
+### Endpoints de Família
 
+| Método | Endpoint | Descrição |
+|--------|----------|-----------|
+| GET | `/family` | Dados da família |
+| POST | `/family` | Criar família |
+| PUT | `/family` | Atualizar |
+| POST | `/family/invite` | Gerar código |
+| POST | `/family/join` | Entrar com código |
+| POST | `/family/leave` | Sair |
+| DELETE | `/family/{id}/members/{userId}` | Remover membro |
+
+### Dependentes
+
+| Método | Endpoint | Descrição |
+|--------|----------|-----------|
+| GET | `/family/dependents` | Listar |
+| POST | `/family/dependents` | Criar |
+| PUT | `/family/dependents/{id}` | Atualizar |
+| DELETE | `/family/dependents/{id}` | Excluir |
+
+**Age Groups:**
+| Valor | Idade | Emoji Sugerido |
+|-------|-------|----------------|
+| `baby` | 0-1 | 👶 |
+| `toddler` | 2-4 | 🧒 |
+| `kid` | 5-12 | 👦👧 |
+| `teen` | 13-17 | 🧑 |
+
+---
+
+## 📋 12. PLANOS
+
+### Endpoints de Planos
+
+| Método | Endpoint | Descrição |
+|--------|----------|-----------|
+| GET | `/plans` | Listar |
+| POST | `/plans` | Criar |
+| GET | `/plans/{id}` | Detalhes |
+| PUT | `/plans/{id}` | Atualizar |
+| DELETE | `/plans/{id}` | Excluir |
+| POST | `/plans/{id}/complete` | Marcar concluído |
+| POST | `/plans/{id}/duplicate` | Duplicar |
+
+### Experiências no Plano
+
+| Método | Endpoint | Descrição |
+|--------|----------|-----------|
+| POST | `/plans/{id}/experiences` | Adicionar |
+| PUT | `/plans/{id}/experiences/{expId}` | Atualizar ordem |
+| DELETE | `/plans/{id}/experiences/{expId}` | Remover |
+
+### Colaboradores
+
+| Método | Endpoint | Descrição |
+|--------|----------|-----------|
+| POST | `/plans/{id}/collaborators` | Convidar |
+| DELETE | `/plans/{id}/collaborators/{userId}` | Remover |
+
+**Status de Plano:**
+```typescript
+type PlanStatus = 'draft' | 'planned' | 'in_progress' | 'completed';
+```
+
+**Time Slots:**
+```typescript
+type TimeSlot = 'morning' | 'afternoon' | 'evening';
+```
+
+---
+
+## ⭐ 13. REVIEWS
+
+### Endpoints de Reviews
+
+| Método | Endpoint | Descrição |
+|--------|----------|-----------|
+| GET | `/experiences/{id}/reviews` | Listar |
+| POST | `/experiences/{id}/reviews` | Criar |
+| PUT | `/reviews/{id}` | Atualizar |
+| DELETE | `/reviews/{id}` | Excluir |
+| POST | `/reviews/{id}/helpful` | Marcar útil |
+
+**GET /experiences/{id}/reviews Query Params:**
+- `sort`: `recent`, `helpful`, `rating_high`, `rating_low`
+- `cursor`: Paginação
+- `limit`: 1-50
+
+**POST /experiences/{id}/reviews:**
 ```json
-// POST /experiences/{id}/reviews
 {
   "rating": 5,
-  "comment": "Adoramos!",
-  "tags": ["divertido", "limpo"],
+  "comment": "Experiência incrível!",
+  "tags": ["divertido", "limpo", "seguro"],
   "visited_at": "2026-01-15",
+  "visibility": "public",
   "photo_urls": ["https://..."]
 }
 ```
 
 ---
 
-## 14. Memórias
+## 📸 14. MEMÓRIAS
 
-| Endpoint | Método | Descrição |
-|----------|--------|-----------|
-| `/memories` | GET | Listar |
-| `/memories` | POST | Criar |
-| `/memories/{id}` | GET | Detalhes |
-| `/memories/{id}` | PUT | Atualizar |
-| `/memories/{id}` | DELETE | Excluir |
-| `/memories/{id}/reactions` | POST | Reagir |
-| `/memories/{id}/comments` | POST | Comentar |
+### Endpoints de Memórias
 
-```json
-// POST /memories
-{
-  "image_url": "https://...",
-  "caption": "Dia incrível!",
-  "experience_id": "uuid",
-  "visibility": "family"
-}
+| Método | Endpoint | Descrição |
+|--------|----------|-----------|
+| GET | `/memories` | Listar |
+| POST | `/memories` | Criar |
+| GET | `/memories/{id}` | Detalhes |
+| PUT | `/memories/{id}` | Atualizar |
+| DELETE | `/memories/{id}` | Excluir |
+| POST | `/memories/{id}/reactions` | Reagir |
+| POST | `/memories/{id}/comments` | Comentar |
 
-// POST /memories/{id}/reactions
-{ "emoji": "❤️" }
+**Visibility:**
+```typescript
+type Visibility = 'private' | 'family' | 'collaborators' | 'public';
 ```
 
 ---
 
-## 15. Notificações
+## 🔔 15. NOTIFICAÇÕES
 
-| Endpoint | Método | Descrição |
-|----------|--------|-----------|
-| `/notifications` | GET | Listar |
-| `/notifications/unread-count` | GET | Contador |
-| `/notifications/{id}/read` | PATCH | Marcar lida |
-| `/notifications/read-all` | POST | Marcar todas |
-| `/notifications/{id}` | DELETE | Excluir |
-| `/notifications/settings` | GET | Config |
-| `/notifications/settings` | PUT | Atualizar config |
+### Endpoints de Notificações
 
-```json
-// GET /notifications
-{
-  "data": {
-    "notifications": [
-      {
-        "id": "uuid",
-        "type": "family_invite",
-        "title": "Convite para família",
-        "body": "Maria te convidou",
-        "is_read": false,
-        "data": { "family_id": "uuid" }
-      }
-    ]
-  },
-  "meta": { "unread_count": 5 }
-}
+| Método | Endpoint | Descrição |
+|--------|----------|-----------|
+| GET | `/notifications` | Listar |
+| GET | `/notifications/unread-count` | Contador |
+| PATCH | `/notifications/{id}/read` | Marcar lida |
+| POST | `/notifications/read-all` | Marcar todas |
+| DELETE | `/notifications/{id}` | Excluir |
+| GET | `/notifications/settings` | Configurações |
+| PUT | `/notifications/settings` | Atualizar config |
 
-// PUT /notifications/settings
-{
-  "push_enabled": true,
-  "types": {
-    "family_invite": true,
-    "plan_reminder": true,
-    "trending": false
-  },
-  "quiet_hours": { "enabled": true, "start": "22:00", "end": "08:00" }
-}
-```
+**Tipos de Notificação:**
+| Type | Descrição |
+|------|-----------|
+| `family_invite` | Convite para família |
+| `memory_reaction` | Reação em memória |
+| `plan_reminder` | Lembrete de plano |
+| `trending` | Nova experiência trending |
+| `badge_earned` | Conquista desbloqueada |
 
 ---
 
-## 16. Uploads
+## 📤 16. UPLOADS
 
-### 16.1 `POST /uploads/presign` 🔒
-> Obter URL para upload direto ao S3
+### 16.1 Presigned URL
+```http
+POST /uploads/presign 🔒
+```
 
+| Campo | Tipo | Descrição |
+|-------|------|-----------|
+| `type` | string | `memory`, `review`, `avatar`, `family_avatar` |
+| `content_type` | string | `image/jpeg`, `image/png`, `image/webp` |
+| `filename` | string | Nome do arquivo |
+
+**Response:**
 ```json
-// Request
-{
-  "type": "memory",
-  "content_type": "image/jpeg",
-  "filename": "photo.jpg"
-}
-
-// Response
 {
   "data": {
     "upload_url": "https://s3.../presigned",
     "file_url": "https://cdn.../uuid.jpg",
+    "key": "memories/user_id/uuid.jpg",
     "expires_at": "2026-01-18T02:00:00Z"
   }
 }
 ```
 
-**💡 Fluxo de Upload:**
+**Fluxo de Upload:**
 ```typescript
 // 1. Obter presigned URL
 const { upload_url, file_url } = await api.post('/uploads/presign', {...});
@@ -753,19 +997,21 @@ const { upload_url, file_url } = await api.post('/uploads/presign', {...});
 // 2. Upload direto ao S3
 await fetch(upload_url, { method: 'PUT', body: file });
 
-// 3. Usar file_url no POST
-await api.post('/memories', { image_url: file_url, ... });
+// 3. Usar file_url na criação
+await api.post('/memories', { image_url: file_url });
 ```
 
 ---
 
-## 17. Utilidades
+## 🔗 17. UTILIDADES
 
-### 17.1 `GET /resolve/{code}` (Público)
-> Resolver deep link
+### 17.1 Resolver Deep Link
+```http
+GET /resolve/{code} (Público)
+```
 
+**Response:**
 ```json
-// Response
 {
   "data": {
     "type": "experience",
@@ -775,28 +1021,33 @@ await api.post('/memories', { image_url: file_url, ... });
 }
 ```
 
-### 17.2 `POST /reports` 🔒
-> Denunciar conteúdo
-
-```json
-// Request
-{
-  "type": "experience",
-  "target_id": "uuid",
-  "reason": "wrong_info",
-  "details": "Esse lugar fechou"
-}
+### 17.2 Denunciar Conteúdo
+```http
+POST /reports 🔒
 ```
 
-### 17.3 `POST /share-links` 🔒
-> Gerar link de compartilhamento
+| Campo | Tipo | Descrição |
+|-------|------|-----------|
+| `type` | string | `experience`, `review`, `memory`, `user` |
+| `target_id` | uuid | ID do conteúdo |
+| `reason` | string | Ver tabela abaixo |
+| `details` | string | Descrição adicional |
+
+**Reasons:**
+- `inappropriate` - Conteúdo impróprio
+- `spam` - Spam
+- `wrong_info` - Informação incorreta
+- `closed` - Local fechado
+- `harassment` - Assédio
+- `other` - Outro
+
+### 17.3 Gerar Link de Compartilhamento
+```http
+POST /share-links 🔒
+```
 
 ```json
-// Request
 { "type": "experience", "target_id": "uuid" }
-
-// Response
-{ "data": { "code": "Xk9mP2", "short_url": "https://bdf.app/s/Xk9mP2" } }
 ```
 
 ---
@@ -804,11 +1055,26 @@ await api.post('/memories', { image_url: file_url, ... });
 ## 📦 TypeScript Types
 
 ```typescript
-// Copie para seu projeto
+// Copie para src/types/api.ts
+
 interface ApiResponse<T> {
   data: T;
-  meta: { success: boolean; next_cursor?: string; has_more?: boolean };
-  errors: Array<{ code: string; message: string }> | null;
+  meta: ApiMeta;
+  errors: ApiError[] | null;
+}
+
+interface ApiMeta {
+  success: boolean;
+  next_cursor?: string;
+  has_more?: boolean;
+  cache_until?: string;
+  unread_count?: number;
+}
+
+interface ApiError {
+  code: string;
+  message: string;
+  field?: string;
 }
 
 interface User {
@@ -816,9 +1082,32 @@ interface User {
   phone: string;
   name: string;
   avatar: string | null;
+  email: string | null;
+  is_verified: boolean;
   onboarding_completed: boolean;
   primary_family_id: string | null;
   primary_city_id: string | null;
+}
+
+interface Category {
+  id: string;
+  name: string;
+  slug: string;
+  emoji: string;
+  icon?: string;
+  color?: string;
+  experiences_count: number;
+}
+
+interface City {
+  id: string;
+  name: string;
+  slug: string;
+  state: string;
+  country: string;
+  lat: number;
+  lng: number;
+  display_name: string;
 }
 
 interface Experience {
@@ -827,103 +1116,79 @@ interface Experience {
   mission_title: string;
   cover_image: string;
   distance_km: number;
-  price_level: 'free' | 'moderate' | 'top';
+  price_level: PriceLevel;
   average_rating: number;
+  reviews_count: number;
   is_saved: boolean;
+  badges: string[];
   category: Category;
 }
 
-interface Category {
+interface Dependent {
   id: string;
   name: string;
-  emoji: string;
-  color?: string;
+  birth_date?: string;
+  age_group: AgeGroup;
+  avatar?: string;
 }
 
-type AgeTag = 'baby' | 'toddler' | 'kid' | 'teen' | 'all';
+type PriceLevel = 'free' | 'moderate' | 'top';
+type DurationBucket = 'quick' | 'half' | 'full';
+type AgeGroup = 'baby' | 'toddler' | 'kid' | 'teen';
 type PlanStatus = 'draft' | 'planned' | 'in_progress' | 'completed';
+type TimeSlot = 'morning' | 'afternoon' | 'evening';
 type Visibility = 'private' | 'family' | 'collaborators' | 'public';
 ```
 
 ---
 
-## ✅ Checklist de Integração
-
-### Passo 1: Backend Setup
-```bash
-cd backend
-composer install
-cp .env.example .env
-php artisan key:generate
-php artisan jwt:secret
-
-# Criar banco MariaDB e configurar .env
-php artisan migrate
-php artisan db:seed
-php artisan serve
-```
-
-### Passo 2: Testar Endpoints
-
-```bash
-# 1. Testar OTP
-curl -X POST http://localhost:8000/api/v1/auth/otp/send \
-  -H "Content-Type: application/json" \
-  -d '{"phone":"11999999999"}'
-
-# 2. Verificar OTP (usar código retornado)
-curl -X POST http://localhost:8000/api/v1/auth/otp/verify \
-  -H "Content-Type: application/json" \
-  -d '{"phone":"11999999999","code":"123456","name":"Teste"}'
-
-# 3. Listar categorias
-curl http://localhost:8000/api/v1/categories
-
-# 4. Endpoint autenticado
-curl http://localhost:8000/api/v1/home?city_id=UUID \
-  -H "Authorization: Bearer SEU_TOKEN"
-```
-
-### Passo 3: Configurar Frontend
+## 🔧 Configuração do Axios
 
 ```typescript
-// api.ts
+// src/lib/api.ts
 import axios from 'axios';
 
 const api = axios.create({
-  baseURL: 'http://localhost:8000/api/v1',
+  baseURL: 'https://api.valorsc.com.br/api/v1',
+  headers: { 'Content-Type': 'application/json' },
 });
 
+// Interceptor: adicionar token
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('access_token');
   if (token) config.headers.Authorization = `Bearer ${token}`;
   return config;
 });
 
+// Interceptor: refresh automático
+api.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    if (error.response?.status === 401 && !error.config._retry) {
+      error.config._retry = true;
+      try {
+        const refresh = localStorage.getItem('refresh_token');
+        const { data } = await api.post('/auth/refresh', { refresh_token: refresh });
+        localStorage.setItem('access_token', data.data.tokens.access_token);
+        localStorage.setItem('refresh_token', data.data.tokens.refresh_token);
+        error.config.headers.Authorization = `Bearer ${data.data.tokens.access_token}`;
+        return api(error.config);
+      } catch {
+        localStorage.clear();
+        window.location.href = '/login';
+      }
+    }
+    return Promise.reject(error);
+  }
+);
+
 export default api;
 ```
 
 ---
 
-## ❓ Perguntas Pendentes
+## 📞 Contato
 
-1. **Push Notifications**: Vão usar FCM? Precisamos endpoint de registro de device token.
+Dúvidas sobre a API? Entre em contato com o time de backend.
 
-2. **Filtros adicionais**: Precisam de filtros por:
-   - Bairro/região?
-   - Dia da semana (aberto domingo)?
-   - Acessibilidade específica?
-
-3. **Polling interval**: A cada quantos segundos o polling de `/notifications/unread-count`?
-
-4. **Deep links**: O formato `bdf://experience/{id}` funciona para app scheme?
-
-5. **Batch operations**: Precisam de operações em lote (ex: marcar múltiplas notificações como lidas)?
-
----
-
-## 📞 Suporte
-
-Dúvidas sobre a API? Abra uma issue ou contate o backend team.
-
-> **Última atualização:** 2026-01-18 01:45 (UTC-3)
+> **Atualizado em:** 2026-01-18 02:32 (UTC-3)

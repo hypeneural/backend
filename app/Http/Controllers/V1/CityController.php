@@ -8,11 +8,65 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 
+/**
+ * @group 9. Cidades
+ *
+ * Endpoints para buscar e visualizar cidades disponíveis.
+ *
+ * Todas as experiências são vinculadas a uma cidade. Use estes endpoints
+ * para buscar cidades disponíveis ou obter detalhes de uma cidade específica.
+ */
 class CityController extends Controller
 {
     /**
-     * Search/list cities
-     * GET /v1/cities?q={query}&limit=10
+     * Buscar Cidades
+     *
+     * Busca cidades por nome ou estado. Se nenhum termo for informado,
+     * retorna as maiores cidades por população.
+     *
+     * @unauthenticated
+     *
+     * @queryParam q string Texto para buscar no nome ou estado. Example: São Paulo
+     * @queryParam limit integer Quantidade máxima de resultados (1-50). Default: 10. Example: 10
+     *
+     * @response 200 scenario="Lista de cidades" {
+     *   "data": [
+     *     {
+     *       "id": "edbca93c-2f01-4e17-af0a-53b1ccb4bf90",
+     *       "name": "São Paulo",
+     *       "slug": "sao-paulo",
+     *       "state": "SP",
+     *       "country": "BR",
+     *       "lat": -23.5505,
+     *       "lng": -46.6333,
+     *       "timezone": "America/Sao_Paulo",
+     *       "display_name": "São Paulo, SP"
+     *     },
+     *     {
+     *       "id": "1dd3042f-077f-4721-b1c0-661c0976bfd2",
+     *       "name": "Rio de Janeiro",
+     *       "slug": "rio-de-janeiro",
+     *       "state": "RJ",
+     *       "country": "BR",
+     *       "lat": -22.9068,
+     *       "lng": -43.1729,
+     *       "timezone": "America/Sao_Paulo",
+     *       "display_name": "Rio de Janeiro, RJ"
+     *     }
+     *   ],
+     *   "meta": {"success": true},
+     *   "errors": null
+     * }
+     *
+     * @responseField id string UUID da cidade.
+     * @responseField name string Nome da cidade.
+     * @responseField slug string Identificador URL-friendly.
+     * @responseField state string Sigla do estado (UF).
+     * @responseField country string Código do país (ISO 3166-1 alpha-2).
+     * @responseField lat number Latitude do centro da cidade.
+     * @responseField lng number Longitude do centro da cidade.
+     * @responseField timezone string Fuso horário (IANA timezone).
+     * @responseField display_name string Nome formatado para exibição.
      */
     public function index(Request $request): JsonResponse
     {
@@ -51,8 +105,42 @@ class CityController extends Controller
     }
 
     /**
-     * Get city details
-     * GET /v1/cities/{id}
+     * Detalhes da Cidade
+     *
+     * Retorna informações detalhadas de uma cidade específica,
+     * incluindo contagem de lugares e experiências disponíveis.
+     *
+     * @unauthenticated
+     *
+     * @urlParam id string required UUID da cidade. Example: edbca93c-2f01-4e17-af0a-53b1ccb4bf90
+     *
+     * @response 200 scenario="Detalhes da cidade" {
+     *   "data": {
+     *     "id": "edbca93c-2f01-4e17-af0a-53b1ccb4bf90",
+     *     "name": "São Paulo",
+     *     "slug": "sao-paulo",
+     *     "state": "SP",
+     *     "country": "BR",
+     *     "lat": -23.5505,
+     *     "lng": -46.6333,
+     *     "timezone": "America/Sao_Paulo",
+     *     "population": 12400000,
+     *     "places_count": 150,
+     *     "experiences_count": 320
+     *   },
+     *   "meta": {"success": true},
+     *   "errors": null
+     * }
+     *
+     * @response 404 scenario="Cidade não encontrada" {
+     *   "data": null,
+     *   "meta": {"success": false},
+     *   "errors": [{"code": "NOT_FOUND", "message": "Cidade não encontrada"}]
+     * }
+     *
+     * @responseField population integer População da cidade.
+     * @responseField places_count integer Quantidade de lugares cadastrados.
+     * @responseField experiences_count integer Quantidade de experiências disponíveis.
      */
     public function show(Request $request, string $id): JsonResponse
     {

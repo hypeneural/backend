@@ -154,7 +154,7 @@ class ExperienceSeeder extends Seeder
             'average_rating' => fake()->randomFloat(1, 3.5, 5.0),
             'trending_score' => fake()->randomFloat(2, 0, 100),
             'status' => 'published',
-            'source' => 'editorial',
+            'source' => 'curated',
             'published_at' => now()->subDays(rand(1, 90)),
         ]);
 

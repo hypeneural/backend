@@ -14,9 +14,9 @@ return new class extends Migration {
             $table->uuid('id')->primary();
             $table->string('phone', 20);
             $table->string('code_hash', 255)->comment('bcrypt hash of the code');
-            $table->timestamp('expires_at');
+            $table->timestamp('expires_at')->useCurrent();
             $table->tinyInteger('attempts')->unsigned()->default(0)->comment('Max 5');
-            $table->timestamp('last_sent_at');
+            $table->timestamp('last_sent_at')->useCurrent();
             $table->string('ip_hash', 64)->nullable()->comment('SHA256');
             $table->string('device_fingerprint', 255)->nullable();
             $table->timestamp('verified_at')->nullable();

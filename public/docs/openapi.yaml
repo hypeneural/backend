@@ -1,0 +1,3158 @@
+openapi: 3.0.3
+info:
+  title: 'Bora Dia Família - API Documentation'
+  description: 'API REST para o aplicativo Bora Dia Família - plataforma de descoberta de experiências para famílias.'
+  version: 1.0.0
+servers:
+  -
+    url: 'https://api.valorsc.com.br'
+tags:
+  -
+    name: '1. Autenticação'
+    description: "\nAPIs para autenticação via OTP (One-Time Password) e gerenciamento de tokens JWT.\n\nO fluxo de autenticação funciona assim:\n1. Envie o telefone para `/auth/otp/send` - você receberá um código de 6 dígitos via SMS\n2. Verifique o código em `/auth/otp/verify` - você receberá os tokens de acesso\n3. Use o `access_token` no header Authorization para requisições autenticadas\n4. Quando o token expirar, use `/auth/refresh` para obter um novo"
+  -
+    name: '2. Onboarding'
+    description: "\nEndpoints para o fluxo de onboarding de novos usuários.\n\nApós o primeiro login, o usuário deve completar o onboarding para\npersonalizar sua experiência. O fluxo inclui:\n1. Informar nome\n2. Criar/nomear família\n3. Selecionar categorias favoritas\n4. Definir preferências (distância, preço)\n5. Adicionar dependentes (opcional)"
+  -
+    name: '8. Categorias'
+    description: "\nEndpoints para listar categorias de experiências.\n\nAs categorias são usadas para classificar e filtrar experiências.\nEste endpoint é público e os dados são cacheados por 24 horas."
+  -
+    name: '9. Cidades'
+    description: "\nEndpoints para buscar e visualizar cidades disponíveis.\n\nTodas as experiências são vinculadas a uma cidade. Use estes endpoints\npara buscar cidades disponíveis ou obter detalhes de uma cidade específica."
+  -
+    name: Outros
+    description: ''
+components:
+  securitySchemes:
+    default:
+      type: http
+      scheme: bearer
+      description: 'Obtenha seu token através do endpoint `/auth/otp/verify` após verificar o código OTP.'
+security:
+  -
+    default: []
+paths:
+  /api/v1/auth/otp/send:
+    post:
+      summary: 'Enviar OTP'
+      operationId: enviarOTP
+      description: "Envia um código de verificação de 6 dígitos para o telefone informado via SMS.\nO código expira em 5 minutos e pode ser reenviado após 1 minuto."
+      parameters: []
+      responses:
+        200:
+          description: 'Código enviado com sucesso'
+          content:
+            application/json:
+              schema:
+                type: object
+                example:
+                  data:
+                    message: 'Code sent successfully.'
+                    expires_at: '2026-01-18T05:32:36Z'
+                    code: '123456'
+                  meta:
+                    success: true
+                  errors: null
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      message:
+                        type: string
+                        example: 'Code sent successfully.'
+                      expires_at:
+                        type: string
+                        example: '2026-01-18T05:32:36Z'
+                      code:
+                        type: string
+                        example: '123456'
+                  meta:
+                    type: object
+                    properties:
+                      success:
+                        type: boolean
+                        example: true
+                  errors:
+                    type: string
+                    example: null
+        422:
+          description: 'Telefone inválido'
+          content:
+            application/json:
+              schema:
+                type: object
+                example:
+                  data: null
+                  meta:
+                    success: false
+                  errors:
+                    -
+                      code: VALIDATION_ERROR
+                      message: 'O campo phone é obrigatório'
+                properties:
+                  data:
+                    type: string
+                    example: null
+                  meta:
+                    type: object
+                    properties:
+                      success:
+                        type: boolean
+                        example: false
+                  errors:
+                    type: array
+                    example:
+                      -
+                        code: VALIDATION_ERROR
+                        message: 'O campo phone é obrigatório'
+                    items:
+                      type: object
+                      properties:
+                        code:
+                          type: string
+                          example: VALIDATION_ERROR
+                        message:
+                          type: string
+                          example: 'O campo phone é obrigatório'
+        429:
+          description: 'Rate limit (aguarde 1 minuto)'
+          content:
+            application/json:
+              schema:
+                type: object
+                example:
+                  data: null
+                  meta:
+                    success: false
+                  errors:
+                    -
+                      code: RATE_LIMIT
+                      message: 'Aguarde 1 minuto para reenviar'
+                properties:
+                  data:
+                    type: string
+                    example: null
+                  meta:
+                    type: object
+                    properties:
+                      success:
+                        type: boolean
+                        example: false
+                  errors:
+                    type: array
+                    example:
+                      -
+                        code: RATE_LIMIT
+                        message: 'Aguarde 1 minuto para reenviar'
+                    items:
+                      type: object
+                      properties:
+                        code:
+                          type: string
+                          example: RATE_LIMIT
+                        message:
+                          type: string
+                          example: 'Aguarde 1 minuto para reenviar'
+      tags:
+        - '1. Autenticação'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                phone:
+                  type: string
+                  description: 'Número de telefone com DDD (sem código do país).'
+                  example: '11999999999'
+              required:
+                - phone
+      security: []
+  /api/v1/auth/otp/verify:
+    post:
+      summary: 'Verificar OTP e Autenticar'
+      operationId: verificarOTPEAutenticar
+      description: "Valida o código OTP recebido por SMS e retorna os tokens de autenticação.\nSe o usuário não existir, uma nova conta será criada automaticamente."
+      parameters: []
+      responses:
+        200:
+          description: 'Usuário existente autenticado'
+          content:
+            application/json:
+              schema:
+                type: object
+                example:
+                  data:
+                    user:
+                      id: 019bcf92-ecda-70a6-98ec-204362b9c61a
+                      phone: '+5511999999999'
+                      name: 'João Silva'
+                      avatar: 'https://cdn.example.com/avatar.jpg'
+                      is_verified: true
+                      onboarding_completed: true
+                      primary_family_id: 019bcf92-ecde-718f-a588-27021c63eb59
+                      primary_city_id: edbca93c-2f01-4e17-af0a-53b1ccb4bf90
+                    tokens:
+                      access_token: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...
+                      refresh_token: n6rowFjjp07kkFyJ5yKl4vJ4nUvqb6Ry...
+                      token_type: bearer
+                      expires_in: 3600
+                    is_new_user: false
+                  meta:
+                    success: true
+                  errors: null
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      user:
+                        type: object
+                        properties:
+                          id:
+                            type: string
+                            example: 019bcf92-ecda-70a6-98ec-204362b9c61a
+                          phone:
+                            type: string
+                            example: '+5511999999999'
+                          name:
+                            type: string
+                            example: 'João Silva'
+                          avatar:
+                            type: string
+                            example: 'https://cdn.example.com/avatar.jpg'
+                          is_verified:
+                            type: boolean
+                            example: true
+                          onboarding_completed:
+                            type: boolean
+                            example: true
+                          primary_family_id:
+                            type: string
+                            example: 019bcf92-ecde-718f-a588-27021c63eb59
+                          primary_city_id:
+                            type: string
+                            example: edbca93c-2f01-4e17-af0a-53b1ccb4bf90
+                      tokens:
+                        type: object
+                        properties:
+                          access_token:
+                            type: string
+                            example: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...
+                          refresh_token:
+                            type: string
+                            example: n6rowFjjp07kkFyJ5yKl4vJ4nUvqb6Ry...
+                          token_type:
+                            type: string
+                            example: bearer
+                          expires_in:
+                            type: integer
+                            example: 3600
+                      is_new_user:
+                        type: boolean
+                        example: false
+                  meta:
+                    type: object
+                    properties:
+                      success:
+                        type: boolean
+                        example: true
+                  errors:
+                    type: string
+                    example: null
+        201:
+          description: 'Novo usuário criado'
+          content:
+            application/json:
+              schema:
+                type: object
+                example:
+                  data:
+                    user:
+                      id: 019bcf92-ecda-70a6-98ec-204362b9c61a
+                      phone: '+5511999999999'
+                      name: 'João Silva'
+                      avatar: null
+                      is_verified: true
+                      onboarding_completed: false
+                      primary_family_id: 019bcf92-ecde-718f-a588-27021c63eb59
+                      primary_city_id: null
+                    tokens:
+                      access_token: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...
+                      refresh_token: n6rowFjjp07kkFyJ5yKl4vJ4nUvqb6Ry...
+                      token_type: bearer
+                      expires_in: 3600
+                    is_new_user: true
+                  meta:
+                    success: true
+                  errors: null
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      user:
+                        type: object
+                        properties:
+                          id:
+                            type: string
+                            example: 019bcf92-ecda-70a6-98ec-204362b9c61a
+                          phone:
+                            type: string
+                            example: '+5511999999999'
+                          name:
+                            type: string
+                            example: 'João Silva'
+                          avatar:
+                            type: string
+                            example: null
+                          is_verified:
+                            type: boolean
+                            example: true
+                          onboarding_completed:
+                            type: boolean
+                            example: false
+                          primary_family_id:
+                            type: string
+                            example: 019bcf92-ecde-718f-a588-27021c63eb59
+                          primary_city_id:
+                            type: string
+                            example: null
+                      tokens:
+                        type: object
+                        properties:
+                          access_token:
+                            type: string
+                            example: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...
+                          refresh_token:
+                            type: string
+                            example: n6rowFjjp07kkFyJ5yKl4vJ4nUvqb6Ry...
+                          token_type:
+                            type: string
+                            example: bearer
+                          expires_in:
+                            type: integer
+                            example: 3600
+                      is_new_user:
+                        type: boolean
+                        example: true
+                  meta:
+                    type: object
+                    properties:
+                      success:
+                        type: boolean
+                        example: true
+                  errors:
+                    type: string
+                    example: null
+        400:
+          description: 'Código expirado'
+          content:
+            application/json:
+              schema:
+                type: object
+                example:
+                  data: null
+                  meta:
+                    success: false
+                  errors:
+                    -
+                      code: OTP_EXPIRED
+                      message: 'Código expirado. Solicite um novo.'
+                properties:
+                  data:
+                    type: string
+                    example: null
+                  meta:
+                    type: object
+                    properties:
+                      success:
+                        type: boolean
+                        example: false
+                  errors:
+                    type: array
+                    example:
+                      -
+                        code: OTP_EXPIRED
+                        message: 'Código expirado. Solicite um novo.'
+                    items:
+                      type: object
+                      properties:
+                        code:
+                          type: string
+                          example: OTP_EXPIRED
+                        message:
+                          type: string
+                          example: 'Código expirado. Solicite um novo.'
+        401:
+          description: 'Código inválido'
+          content:
+            application/json:
+              schema:
+                type: object
+                example:
+                  data: null
+                  meta:
+                    success: false
+                    attempts_remaining: 2
+                  errors:
+                    -
+                      code: OTP_INVALID
+                      message: 'Código incorreto'
+                properties:
+                  data:
+                    type: string
+                    example: null
+                  meta:
+                    type: object
+                    properties:
+                      success:
+                        type: boolean
+                        example: false
+                      attempts_remaining:
+                        type: integer
+                        example: 2
+                  errors:
+                    type: array
+                    example:
+                      -
+                        code: OTP_INVALID
+                        message: 'Código incorreto'
+                    items:
+                      type: object
+                      properties:
+                        code:
+                          type: string
+                          example: OTP_INVALID
+                        message:
+                          type: string
+                          example: 'Código incorreto'
+      tags:
+        - '1. Autenticação'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                phone:
+                  type: string
+                  description: 'Número de telefone (mesmo usado no envio).'
+                  example: '11999999999'
+                code:
+                  type: string
+                  description: 'Código de 6 dígitos recebido por SMS.'
+                  example: '123456'
+                name:
+                  type: string
+                  description: 'se novo usuário Nome do usuário (obrigatório apenas para novos usuários).'
+                  example: 'João Silva'
+                  nullable: true
+                referral_code:
+                  type: string
+                  description: 'Código de indicação (opcional).'
+                  example: BORA123
+                  nullable: true
+              required:
+                - phone
+                - code
+                - name
+      security: []
+  /api/v1/auth/refresh:
+    post:
+      summary: 'Renovar Token'
+      operationId: renovarToken
+      description: "Gera um novo par de tokens (access + refresh) usando o refresh token atual.\nO refresh token antigo é invalidado após o uso (one-time use)."
+      parameters: []
+      responses:
+        200:
+          description: 'Tokens renovados com sucesso'
+          content:
+            application/json:
+              schema:
+                type: object
+                example:
+                  data:
+                    tokens:
+                      access_token: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...
+                      refresh_token: novoRefreshToken123...
+                      token_type: bearer
+                      expires_in: 3600
+                  meta:
+                    success: true
+                  errors: null
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      tokens:
+                        type: object
+                        properties:
+                          access_token:
+                            type: string
+                            example: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...
+                          refresh_token:
+                            type: string
+                            example: novoRefreshToken123...
+                          token_type:
+                            type: string
+                            example: bearer
+                          expires_in:
+                            type: integer
+                            example: 3600
+                  meta:
+                    type: object
+                    properties:
+                      success:
+                        type: boolean
+                        example: true
+                  errors:
+                    type: string
+                    example: null
+        401:
+          description: 'Refresh token inválido ou expirado'
+          content:
+            application/json:
+              schema:
+                type: object
+                example:
+                  data: null
+                  meta:
+                    success: false
+                  errors:
+                    -
+                      code: INVALID_REFRESH_TOKEN
+                      message: 'Token inválido ou expirado'
+                properties:
+                  data:
+                    type: string
+                    example: null
+                  meta:
+                    type: object
+                    properties:
+                      success:
+                        type: boolean
+                        example: false
+                  errors:
+                    type: array
+                    example:
+                      -
+                        code: INVALID_REFRESH_TOKEN
+                        message: 'Token inválido ou expirado'
+                    items:
+                      type: object
+                      properties:
+                        code:
+                          type: string
+                          example: INVALID_REFRESH_TOKEN
+                        message:
+                          type: string
+                          example: 'Token inválido ou expirado'
+      tags:
+        - '1. Autenticação'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                refresh_token:
+                  type: string
+                  description: 'O refresh token obtido no login.'
+                  example: n6rowFjjp07kkFyJ5yKl4vJ4nUvqb6Ry...
+              required:
+                - refresh_token
+      security: []
+  /api/v1/auth/logout:
+    post:
+      summary: Logout
+      operationId: logout
+      description: "Revoga os tokens de acesso do usuário. Pode revogar apenas o dispositivo atual\nou todos os dispositivos de uma vez."
+      parameters: []
+      responses:
+        200:
+          description: 'Logout realizado'
+          content:
+            application/json:
+              schema:
+                type: object
+                example:
+                  data:
+                    message: 'Logged out successfully'
+                  meta:
+                    success: true
+                  errors: null
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      message:
+                        type: string
+                        example: 'Logged out successfully'
+                  meta:
+                    type: object
+                    properties:
+                      success:
+                        type: boolean
+                        example: true
+                  errors:
+                    type: string
+                    example: null
+      tags:
+        - '1. Autenticação'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                refresh_token:
+                  type: string
+                  description: 'O refresh token do dispositivo atual (opcional).'
+                  example: n6rowFjjp07kkFyJ5yKl...
+                all_devices:
+                  type: boolean
+                  description: 'Se true, revoga tokens de todos os dispositivos. Default: false.'
+                  example: false
+  /api/v1/auth/me:
+    get:
+      summary: 'Dados do Usuário Logado'
+      operationId: dadosDoUsurioLogado
+      description: "Retorna os dados completos do usuário autenticado, incluindo estatísticas\nde gamificação e informações da família principal."
+      parameters: []
+      responses:
+        200:
+          description: 'Dados retornados com sucesso'
+          content:
+            application/json:
+              schema:
+                type: object
+                example:
+                  data:
+                    id: 019bcf92-ecda-70a6-98ec-204362b9c61a
+                    phone: '+5511999999999'
+                    name: 'João Silva'
+                    avatar: 'https://cdn.example.com/avatar.jpg'
+                    email: joao@email.com
+                    is_verified: true
+                    stats:
+                      xp: 500
+                      level: 2
+                      streak_days: 5
+                    primary_family:
+                      id: 019bcf92-ecde-718f-a588-27021c63eb59
+                      name: 'Família Silva'
+                    created_at: '2026-01-15T10:00:00Z'
+                  meta:
+                    success: true
+                  errors: null
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                        example: 019bcf92-ecda-70a6-98ec-204362b9c61a
+                      phone:
+                        type: string
+                        example: '+5511999999999'
+                      name:
+                        type: string
+                        example: 'João Silva'
+                      avatar:
+                        type: string
+                        example: 'https://cdn.example.com/avatar.jpg'
+                      email:
+                        type: string
+                        example: joao@email.com
+                      is_verified:
+                        type: boolean
+                        example: true
+                      stats:
+                        type: object
+                        properties:
+                          xp:
+                            type: integer
+                            example: 500
+                          level:
+                            type: integer
+                            example: 2
+                          streak_days:
+                            type: integer
+                            example: 5
+                      primary_family:
+                        type: object
+                        properties:
+                          id:
+                            type: string
+                            example: 019bcf92-ecde-718f-a588-27021c63eb59
+                          name:
+                            type: string
+                            example: 'Família Silva'
+                      created_at:
+                        type: string
+                        example: '2026-01-15T10:00:00Z'
+                  meta:
+                    type: object
+                    properties:
+                      success:
+                        type: boolean
+                        example: true
+                  errors:
+                    type: string
+                    example: null
+        401:
+          description: 'Token inválido'
+          content:
+            application/json:
+              schema:
+                type: object
+                example:
+                  data: null
+                  meta:
+                    success: false
+                  errors:
+                    -
+                      code: UNAUTHENTICATED
+                      message: 'Token inválido ou expirado'
+                properties:
+                  data:
+                    type: string
+                    example: null
+                  meta:
+                    type: object
+                    properties:
+                      success:
+                        type: boolean
+                        example: false
+                  errors:
+                    type: array
+                    example:
+                      -
+                        code: UNAUTHENTICATED
+                        message: 'Token inválido ou expirado'
+                    items:
+                      type: object
+                      properties:
+                        code:
+                          type: string
+                          example: UNAUTHENTICATED
+                        message:
+                          type: string
+                          example: 'Token inválido ou expirado'
+      tags:
+        - '1. Autenticação'
+  /api/v1/onboarding/status:
+    get:
+      summary: 'Status do Onboarding'
+      operationId: statusDoOnboarding
+      description: "Verifica quais etapas do onboarding o usuário já completou\ne quais ainda estão pendentes."
+      parameters: []
+      responses:
+        200:
+          description: ''
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  -
+                    description: 'Onboarding incompleto'
+                    type: object
+                    example:
+                      data:
+                        completed: false
+                        steps_completed:
+                          - name
+                          - family
+                        missing_steps:
+                          - preferences
+                          - categories
+                      meta:
+                        success: true
+                      errors: null
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          completed:
+                            type: boolean
+                            example: false
+                          steps_completed:
+                            type: array
+                            example:
+                              - name
+                              - family
+                            items:
+                              type: string
+                          missing_steps:
+                            type: array
+                            example:
+                              - preferences
+                              - categories
+                            items:
+                              type: string
+                      meta:
+                        type: object
+                        properties:
+                          success:
+                            type: boolean
+                            example: true
+                      errors:
+                        type: string
+                        example: null
+                  -
+                    description: 'Onboarding completo'
+                    type: object
+                    example:
+                      data:
+                        completed: true
+                        steps_completed:
+                          - name
+                          - family
+                          - preferences
+                          - categories
+                          - dependents
+                        missing_steps: []
+                      meta:
+                        success: true
+                      errors: null
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          completed:
+                            type: boolean
+                            example: true
+                          steps_completed:
+                            type: array
+                            example:
+                              - name
+                              - family
+                              - preferences
+                              - categories
+                              - dependents
+                            items:
+                              type: string
+                          missing_steps:
+                            type: array
+                            example: []
+                      meta:
+                        type: object
+                        properties:
+                          success:
+                            type: boolean
+                            example: true
+                      errors:
+                        type: string
+                        example: null
+      tags:
+        - '2. Onboarding'
+  /api/v1/onboarding/complete:
+    post:
+      summary: 'Completar Onboarding'
+      operationId: completarOnboarding
+      description: "Completa todas as etapas do onboarding de uma vez.\nEste endpoint executa as seguintes ações em uma transação:\n- Atualiza o nome do usuário\n- Atualiza o nome da família (se fornecido)\n- Cria as preferências da família\n- Associa as categorias favoritas\n- Cria os dependentes (se fornecidos)\n- Marca o onboarding como concluído"
+      parameters: []
+      responses:
+        201:
+          description: 'Onboarding completado'
+          content:
+            application/json:
+              schema:
+                type: object
+                example:
+                  data:
+                    message: 'Onboarding completed successfully!'
+                    user:
+                      id: 019bcf92-ecda-70a6-98ec-204362b9c61a
+                      name: 'João Silva'
+                      onboarding_completed: true
+                  meta:
+                    success: true
+                  errors: null
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      message:
+                        type: string
+                        example: 'Onboarding completed successfully!'
+                      user:
+                        type: object
+                        properties:
+                          id:
+                            type: string
+                            example: 019bcf92-ecda-70a6-98ec-204362b9c61a
+                          name:
+                            type: string
+                            example: 'João Silva'
+                          onboarding_completed:
+                            type: boolean
+                            example: true
+                  meta:
+                    type: object
+                    properties:
+                      success:
+                        type: boolean
+                        example: true
+                  errors:
+                    type: string
+                    example: null
+        422:
+          description: 'Dados inválidos'
+          content:
+            application/json:
+              schema:
+                type: object
+                example:
+                  data: null
+                  meta:
+                    success: false
+                  errors:
+                    -
+                      code: VALIDATION_ERROR
+                      field: favorite_categories
+                      message: 'O campo favorite_categories é obrigatório'
+                properties:
+                  data:
+                    type: string
+                    example: null
+                  meta:
+                    type: object
+                    properties:
+                      success:
+                        type: boolean
+                        example: false
+                  errors:
+                    type: array
+                    example:
+                      -
+                        code: VALIDATION_ERROR
+                        field: favorite_categories
+                        message: 'O campo favorite_categories é obrigatório'
+                    items:
+                      type: object
+                      properties:
+                        code:
+                          type: string
+                          example: VALIDATION_ERROR
+                        field:
+                          type: string
+                          example: favorite_categories
+                        message:
+                          type: string
+                          example: 'O campo favorite_categories é obrigatório'
+      tags:
+        - '2. Onboarding'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  description: 'Nome do usuário.'
+                  example: 'João Silva'
+                favorite_categories:
+                  type: array
+                  description: 'Lista de UUIDs das categorias favoritas (mínimo 1).'
+                  example:
+                    - c038d7b3-74b9-4c28-8488-b64a5dc1d791
+                  items:
+                    type: string
+                max_distance_km:
+                  type: integer
+                  description: 'Distância máxima em km para buscar experiências (1-100). Default: 30.'
+                  example: 30
+                  nullable: true
+                default_price:
+                  type: string
+                  description: 'Faixa de preço preferida: `free`, `moderate`, `top`. Default: moderate.'
+                  example: moderate
+                  nullable: true
+                family_name:
+                  type: string
+                  description: 'Nome da família.'
+                  example: 'Família Silva'
+                  nullable: true
+                dependents:
+                  type: array
+                  description: 'Lista de dependentes (crianças).'
+                  example:
+                    - []
+                  items:
+                    type: object
+                    nullable: true
+                    properties:
+                      name:
+                        type: string
+                        description: 'Nome do dependente.'
+                        example: Lucas
+                      birth_date:
+                        type: string
+                        description: 'Data de nascimento (YYYY-MM-DD).'
+                        example: '2018-05-15'
+                        nullable: true
+                      age_group:
+                        type: string
+                        description: 'Faixa etária: `baby` (0-1), `toddler` (2-4), `kid` (5-12), `teen` (13-17).'
+                        example: kid
+                      avatar:
+                        type: string
+                        description: 'Emoji para avatar do dependente.'
+                        example: 👦
+                        nullable: true
+                    required:
+                      - name
+                      - age_group
+              required:
+                - name
+                - favorite_categories
+  /api/v1/categories:
+    get:
+      summary: 'Listar Categorias'
+      operationId: listarCategorias
+      description: "Retorna todas as categorias ativas ordenadas por prioridade.\nOs dados são cacheados por 24 horas para melhor performance."
+      parameters: []
+      responses:
+        200:
+          description: 'Lista de categorias'
+          content:
+            application/json:
+              schema:
+                type: object
+                example:
+                  data:
+                    -
+                      id: c038d7b3-74b9-4c28-8488-b64a5dc1d791
+                      name: Parques
+                      slug: parques
+                      emoji: 🌳
+                      icon: trees
+                      color: '#22c55e'
+                      description: 'Parques, praças e áreas verdes para curtir ao ar livre'
+                      experiences_count: 45
+                    -
+                      id: 99da4ce7-cf82-4445-9942-51873a2c7741
+                      name: Museus
+                      slug: museus
+                      emoji: 🏛️
+                      icon: landmark
+                      color: '#8b5cf6'
+                      description: 'Museus, exposições e centros culturais'
+                      experiences_count: 32
+                  meta:
+                    success: true
+                    cache_until: '2026-01-19T10:00:00Z'
+                  errors: null
+                properties:
+                  data:
+                    type: array
+                    example:
+                      -
+                        id: c038d7b3-74b9-4c28-8488-b64a5dc1d791
+                        name: Parques
+                        slug: parques
+                        emoji: 🌳
+                        icon: trees
+                        color: '#22c55e'
+                        description: 'Parques, praças e áreas verdes para curtir ao ar livre'
+                        experiences_count: 45
+                      -
+                        id: 99da4ce7-cf82-4445-9942-51873a2c7741
+                        name: Museus
+                        slug: museus
+                        emoji: 🏛️
+                        icon: landmark
+                        color: '#8b5cf6'
+                        description: 'Museus, exposições e centros culturais'
+                        experiences_count: 32
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                          example: c038d7b3-74b9-4c28-8488-b64a5dc1d791
+                        name:
+                          type: string
+                          example: Parques
+                        slug:
+                          type: string
+                          example: parques
+                        emoji:
+                          type: string
+                          example: 🌳
+                        icon:
+                          type: string
+                          example: trees
+                        color:
+                          type: string
+                          example: '#22c55e'
+                        description:
+                          type: string
+                          example: 'Parques, praças e áreas verdes para curtir ao ar livre'
+                        experiences_count:
+                          type: integer
+                          example: 45
+                  meta:
+                    type: object
+                    properties:
+                      success:
+                        type: boolean
+                        example: true
+                      cache_until:
+                        type: string
+                        example: '2026-01-19T10:00:00Z'
+                  errors:
+                    type: string
+                    example: null
+      tags:
+        - '8. Categorias'
+      security: []
+  /api/v1/cities:
+    get:
+      summary: 'Buscar Cidades'
+      operationId: buscarCidades
+      description: "Busca cidades por nome ou estado. Se nenhum termo for informado,\nretorna as maiores cidades por população."
+      parameters:
+        -
+          in: query
+          name: q
+          description: 'Texto para buscar no nome ou estado.'
+          example: 'São Paulo'
+          required: false
+          schema:
+            type: string
+            description: 'Texto para buscar no nome ou estado.'
+            example: 'São Paulo'
+        -
+          in: query
+          name: limit
+          description: 'Quantidade máxima de resultados (1-50). Default: 10.'
+          example: 10
+          required: false
+          schema:
+            type: integer
+            description: 'Quantidade máxima de resultados (1-50). Default: 10.'
+            example: 10
+      responses:
+        200:
+          description: 'Lista de cidades'
+          content:
+            application/json:
+              schema:
+                type: object
+                example:
+                  data:
+                    -
+                      id: edbca93c-2f01-4e17-af0a-53b1ccb4bf90
+                      name: 'São Paulo'
+                      slug: sao-paulo
+                      state: SP
+                      country: BR
+                      lat: -23.5505
+                      lng: -46.6333
+                      timezone: America/Sao_Paulo
+                      display_name: 'São Paulo, SP'
+                    -
+                      id: 1dd3042f-077f-4721-b1c0-661c0976bfd2
+                      name: 'Rio de Janeiro'
+                      slug: rio-de-janeiro
+                      state: RJ
+                      country: BR
+                      lat: -22.9068
+                      lng: -43.1729
+                      timezone: America/Sao_Paulo
+                      display_name: 'Rio de Janeiro, RJ'
+                  meta:
+                    success: true
+                  errors: null
+                properties:
+                  data:
+                    type: array
+                    example:
+                      -
+                        id: edbca93c-2f01-4e17-af0a-53b1ccb4bf90
+                        name: 'São Paulo'
+                        slug: sao-paulo
+                        state: SP
+                        country: BR
+                        lat: -23.5505
+                        lng: -46.6333
+                        timezone: America/Sao_Paulo
+                        display_name: 'São Paulo, SP'
+                      -
+                        id: 1dd3042f-077f-4721-b1c0-661c0976bfd2
+                        name: 'Rio de Janeiro'
+                        slug: rio-de-janeiro
+                        state: RJ
+                        country: BR
+                        lat: -22.9068
+                        lng: -43.1729
+                        timezone: America/Sao_Paulo
+                        display_name: 'Rio de Janeiro, RJ'
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                          example: edbca93c-2f01-4e17-af0a-53b1ccb4bf90
+                        name:
+                          type: string
+                          example: 'São Paulo'
+                        slug:
+                          type: string
+                          example: sao-paulo
+                        state:
+                          type: string
+                          example: SP
+                        country:
+                          type: string
+                          example: BR
+                        lat:
+                          type: number
+                          example: -23.5505
+                        lng:
+                          type: number
+                          example: -46.6333
+                        timezone:
+                          type: string
+                          example: America/Sao_Paulo
+                        display_name:
+                          type: string
+                          example: 'São Paulo, SP'
+                  meta:
+                    type: object
+                    properties:
+                      success:
+                        type: boolean
+                        example: true
+                  errors:
+                    type: string
+                    example: null
+      tags:
+        - '9. Cidades'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                q:
+                  type: string
+                  description: 'Must not be greater than 100 characters.'
+                  example: b
+                  nullable: true
+                limit:
+                  type: integer
+                  description: 'Must be at least 1. Must not be greater than 50.'
+                  example: 22
+                  nullable: true
+      security: []
+  '/api/v1/cities/{id}':
+    get:
+      summary: 'Detalhes da Cidade'
+      operationId: detalhesDaCidade
+      description: "Retorna informações detalhadas de uma cidade específica,\nincluindo contagem de lugares e experiências disponíveis."
+      parameters: []
+      responses:
+        200:
+          description: 'Detalhes da cidade'
+          content:
+            application/json:
+              schema:
+                type: object
+                example:
+                  data:
+                    id: edbca93c-2f01-4e17-af0a-53b1ccb4bf90
+                    name: 'São Paulo'
+                    slug: sao-paulo
+                    state: SP
+                    country: BR
+                    lat: -23.5505
+                    lng: -46.6333
+                    timezone: America/Sao_Paulo
+                    population: 12400000
+                    places_count: 150
+                    experiences_count: 320
+                  meta:
+                    success: true
+                  errors: null
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                        example: edbca93c-2f01-4e17-af0a-53b1ccb4bf90
+                      name:
+                        type: string
+                        example: 'São Paulo'
+                      slug:
+                        type: string
+                        example: sao-paulo
+                      state:
+                        type: string
+                        example: SP
+                      country:
+                        type: string
+                        example: BR
+                      lat:
+                        type: number
+                        example: -23.5505
+                      lng:
+                        type: number
+                        example: -46.6333
+                      timezone:
+                        type: string
+                        example: America/Sao_Paulo
+                      population:
+                        type: integer
+                        example: 12400000
+                      places_count:
+                        type: integer
+                        example: 150
+                      experiences_count:
+                        type: integer
+                        example: 320
+                  meta:
+                    type: object
+                    properties:
+                      success:
+                        type: boolean
+                        example: true
+                  errors:
+                    type: string
+                    example: null
+        404:
+          description: 'Cidade não encontrada'
+          content:
+            application/json:
+              schema:
+                type: object
+                example:
+                  data: null
+                  meta:
+                    success: false
+                  errors:
+                    -
+                      code: NOT_FOUND
+                      message: 'Cidade não encontrada'
+                properties:
+                  data:
+                    type: string
+                    example: null
+                  meta:
+                    type: object
+                    properties:
+                      success:
+                        type: boolean
+                        example: false
+                  errors:
+                    type: array
+                    example:
+                      -
+                        code: NOT_FOUND
+                        message: 'Cidade não encontrada'
+                    items:
+                      type: object
+                      properties:
+                        code:
+                          type: string
+                          example: NOT_FOUND
+                        message:
+                          type: string
+                          example: 'Cidade não encontrada'
+      tags:
+        - '9. Cidades'
+      security: []
+    parameters:
+      -
+        in: path
+        name: id
+        description: 'UUID da cidade.'
+        example: edbca93c-2f01-4e17-af0a-53b1ccb4bf90
+        required: true
+        schema:
+          type: string
+  '/api/v1/resolve/{code}':
+    get:
+      summary: "Resolve a deep link code\nGET /v1/resolve/{code}"
+      operationId: resolveADeepLinkCodeGETv1resolvecode
+      description: ''
+      parameters: []
+      responses: {  }
+      tags:
+        - Outros
+    parameters:
+      -
+        in: path
+        name: code
+        description: ''
+        example: architecto
+        required: true
+        schema:
+          type: string
+  /api/v1/users/me:
+    put:
+      summary: "Update current user profile\nPUT /v1/users/me"
+      operationId: updateCurrentUserProfilePUTv1usersme
+      description: ''
+      parameters: []
+      responses: {  }
+      tags:
+        - Outros
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  description: 'Must not be greater than 100 characters.'
+                  example: b
+                  nullable: true
+                email:
+                  type: string
+                  description: 'Must be a valid email address. Must not be greater than 255 characters.'
+                  example: zbailey@example.net
+                  nullable: true
+    delete:
+      summary: "Soft delete user account\nDELETE /v1/users/me"
+      operationId: softDeleteUserAccountDELETEv1usersme
+      description: ''
+      parameters: []
+      responses: {  }
+      tags:
+        - Outros
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                confirmation:
+                  type: string
+                  description: ''
+                  example: DELETE
+                  enum:
+                    - DELETE
+              required:
+                - confirmation
+  /api/v1/users/me/avatar:
+    patch:
+      summary: "Update user avatar\nPATCH /v1/users/me/avatar"
+      operationId: updateUserAvatarPATCHv1usersmeavatar
+      description: ''
+      parameters: []
+      responses: {  }
+      tags:
+        - Outros
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                avatar_url:
+                  type: string
+                  description: 'Must be a valid URL.'
+                  example: 'http://www.bailey.biz/quos-velit-et-fugiat-sunt-nihil-accusantium-harum.html'
+              required:
+                - avatar_url
+  /api/v1/users/me/location:
+    post:
+      summary: "Update user location\nPOST /v1/users/me/location"
+      operationId: updateUserLocationPOSTv1usersmelocation
+      description: ''
+      parameters: []
+      responses: {  }
+      tags:
+        - Outros
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                lat:
+                  type: number
+                  description: 'Must be between -90 and 90.'
+                  example: -89
+                lng:
+                  type: number
+                  description: 'Must be between -180 and 180.'
+                  example: -179
+                city_id:
+                  type: string
+                  description: 'Must be a valid UUID. The <code>id</code> of an existing record in the cities table.'
+                  example: 6b72fe4a-5b40-307c-bc24-f79acf9a1bb9
+                  nullable: true
+              required:
+                - lat
+                - lng
+  /api/v1/users/me/stats:
+    get:
+      summary: "Get user statistics\nGET /v1/users/me/stats"
+      operationId: getUserStatisticsGETv1usersmestats
+      description: ''
+      parameters: []
+      responses: {  }
+      tags:
+        - Outros
+  /api/v1/home:
+    get:
+      summary: "Unified Home endpoint\nGET /v1/home?city_id={id}&lat={lat}&lng={lng}"
+      operationId: unifiedHomeEndpointGETv1homecityIdidlatlatlnglng
+      description: ''
+      parameters: []
+      responses: {  }
+      tags:
+        - Outros
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                city_id:
+                  type: string
+                  description: 'Must be a valid UUID. The <code>id</code> of an existing record in the cities table.'
+                  example: 6ff8f7f6-1eb3-3525-be4a-3932c805afed
+                lat:
+                  type: number
+                  description: 'Must be between -90 and 90.'
+                  example: -90
+                  nullable: true
+                lng:
+                  type: number
+                  description: 'Must be between -180 and 180.'
+                  example: -179
+                  nullable: true
+              required:
+                - city_id
+  /api/v1/experiences/search:
+    get:
+      summary: "Search experiences with facets and cursor pagination\nGET /v1/experiences/search"
+      operationId: searchExperiencesWithFacetsAndCursorPaginationGETv1experiencessearch
+      description: ''
+      parameters: []
+      responses: {  }
+      tags:
+        - Outros
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                city_id:
+                  type: string
+                  description: 'Must be a valid UUID. The <code>id</code> of an existing record in the cities table.'
+                  example: 6ff8f7f6-1eb3-3525-be4a-3932c805afed
+                q:
+                  type: string
+                  description: 'Must not be greater than 200 characters.'
+                  example: g
+                  nullable: true
+                categories:
+                  type: array
+                  description: 'Must be a valid UUID.'
+                  example:
+                    - c90237e9-ced5-3af6-88ea-84aeaa148878
+                  items:
+                    type: string
+                price:
+                  type: array
+                  description: ''
+                  example:
+                    - moderate
+                  items:
+                    type: string
+                    enum:
+                      - free
+                      - moderate
+                      - top
+                duration:
+                  type: string
+                  description: ''
+                  example: full
+                  enum:
+                    - quick
+                    - half
+                    - full
+                  nullable: true
+                age_tags:
+                  type: array
+                  description: ''
+                  example:
+                    - all
+                  items:
+                    type: string
+                    enum:
+                      - baby
+                      - toddler
+                      - kid
+                      - teen
+                      - all
+                weather:
+                  type: string
+                  description: ''
+                  example: sun
+                  enum:
+                    - sun
+                    - rain
+                    - any
+                  nullable: true
+                cursor:
+                  type: string
+                  description: ''
+                  example: architecto
+                  nullable: true
+                limit:
+                  type: integer
+                  description: 'Must be at least 1. Must not be greater than 50.'
+                  example: 22
+                  nullable: true
+              required:
+                - city_id
+  '/api/v1/experiences/{id}':
+    get:
+      summary: "Get experience details\nGET /v1/experiences/{id}"
+      operationId: getExperienceDetailsGETv1experiencesid
+      description: ''
+      parameters: []
+      responses: {  }
+      tags:
+        - Outros
+    parameters:
+      -
+        in: path
+        name: id
+        description: 'The ID of the experience.'
+        example: architecto
+        required: true
+        schema:
+          type: string
+  '/api/v1/experiences/{experienceId}/reviews':
+    get:
+      summary: "List reviews for experience\nGET /v1/experiences/{experienceId}/reviews"
+      operationId: listReviewsForExperienceGETv1experiencesexperienceIdreviews
+      description: ''
+      parameters: []
+      responses: {  }
+      tags:
+        - Outros
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                sort:
+                  type: string
+                  description: ''
+                  example: rating_high
+                  enum:
+                    - recent
+                    - helpful
+                    - rating_high
+                    - rating_low
+                  nullable: true
+                cursor:
+                  type: string
+                  description: ''
+                  example: architecto
+                  nullable: true
+                limit:
+                  type: integer
+                  description: 'Must be at least 1. Must not be greater than 50.'
+                  example: 22
+                  nullable: true
+    post:
+      summary: "Create review\nPOST /v1/experiences/{experienceId}/reviews"
+      operationId: createReviewPOSTv1experiencesexperienceIdreviews
+      description: ''
+      parameters: []
+      responses: {  }
+      tags:
+        - Outros
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                rating:
+                  type: integer
+                  description: 'Must be at least 1. Must not be greater than 5.'
+                  example: 1
+                comment:
+                  type: string
+                  description: 'Must not be greater than 2000 characters.'
+                  example: 'n'
+                  nullable: true
+                tags:
+                  type: array
+                  description: 'Must not be greater than 50 characters.'
+                  example:
+                    - g
+                  items:
+                    type: string
+                visibility:
+                  type: string
+                  description: ''
+                  example: private
+                  enum:
+                    - private
+                    - public
+                  nullable: true
+                visited_at:
+                  type: string
+                  description: 'Must be a valid date. Must be a date before or equal to <code>today</code>.'
+                  example: '2022-02-10'
+                  nullable: true
+                photo_urls:
+                  type: array
+                  description: 'Must be a valid URL.'
+                  example:
+                    - 'http://bailey.com/'
+                  items:
+                    type: string
+              required:
+                - rating
+    parameters:
+      -
+        in: path
+        name: experienceId
+        description: ''
+        example: architecto
+        required: true
+        schema:
+          type: string
+  /api/v1/map/experiences:
+    get:
+      summary: "Get experiences for map view with bbox and clustering\nGET /v1/map/experiences?bbox=w,s,e,n&zoom=z&limit=100"
+      operationId: getExperiencesForMapViewWithBboxAndClusteringGETv1mapexperiencesbboxwsenzoomzlimit100
+      description: ''
+      parameters: []
+      responses: {  }
+      tags:
+        - Outros
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                bbox:
+                  type: string
+                  description: ''
+                  example: architecto
+                zoom:
+                  type: integer
+                  description: 'Must be at least 1. Must not be greater than 22.'
+                  example: 12
+                limit:
+                  type: integer
+                  description: 'Must be at least 1. Must not be greater than 200.'
+                  example: 7
+                  nullable: true
+              required:
+                - bbox
+                - zoom
+  /api/v1/family:
+    get:
+      summary: "Get current family\nGET /v1/family?family_id={id}"
+      operationId: getCurrentFamilyGETv1familyfamilyIdid
+      description: ''
+      parameters: []
+      responses: {  }
+      tags:
+        - Outros
+    put:
+      summary: "Update family\nPUT /v1/family"
+      operationId: updateFamilyPUTv1family
+      description: ''
+      parameters: []
+      responses: {  }
+      tags:
+        - Outros
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                family_id:
+                  type: string
+                  description: 'Must be a valid UUID. The <code>id</code> of an existing record in the families table.'
+                  example: 6ff8f7f6-1eb3-3525-be4a-3932c805afed
+                  nullable: true
+                name:
+                  type: string
+                  description: 'Must not be greater than 100 characters.'
+                  example: g
+                  nullable: true
+                type:
+                  type: string
+                  description: ''
+                  example: family
+                  enum:
+                    - family
+                    - friends
+                    - couple
+                  nullable: true
+                avatar:
+                  type: string
+                  description: 'Must be a valid URL.'
+                  example: 'http://www.okuneva.com/fugiat-sunt-nihil-accusantium-harum-mollitia.html'
+                  nullable: true
+                vibe_preset:
+                  type: string
+                  description: 'Must not be greater than 50 characters.'
+                  example: k
+                  nullable: true
+    post:
+      summary: "Create a new family\nPOST /v1/family"
+      operationId: createANewFamilyPOSTv1family
+      description: ''
+      parameters: []
+      responses: {  }
+      tags:
+        - Outros
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  description: 'Must not be greater than 100 characters.'
+                  example: b
+                type:
+                  type: string
+                  description: ''
+                  example: friends
+                  enum:
+                    - family
+                    - friends
+                    - couple
+                  nullable: true
+              required:
+                - name
+  /api/v1/family/invite:
+    post:
+      summary: "Generate invite code\nPOST /v1/family/invite"
+      operationId: generateInviteCodePOSTv1familyinvite
+      description: ''
+      parameters: []
+      responses: {  }
+      tags:
+        - Outros
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                family_id:
+                  type: string
+                  description: 'Must be a valid UUID. The <code>id</code> of an existing record in the families table.'
+                  example: 6ff8f7f6-1eb3-3525-be4a-3932c805afed
+                  nullable: true
+                max_uses:
+                  type: integer
+                  description: 'Must be at least 1. Must not be greater than 100.'
+                  example: 7
+                  nullable: true
+                expires_in_days:
+                  type: integer
+                  description: 'Must be at least 1. Must not be greater than 30.'
+                  example: 16
+                  nullable: true
+  /api/v1/family/join:
+    post:
+      summary: "Join family with invite code\nPOST /v1/family/join"
+      operationId: joinFamilyWithInviteCodePOSTv1familyjoin
+      description: ''
+      parameters: []
+      responses: {  }
+      tags:
+        - Outros
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                code:
+                  type: string
+                  description: 'Must not be greater than 20 characters.'
+                  example: bngzmiyvdljnikhw
+              required:
+                - code
+  /api/v1/family/leave:
+    post:
+      summary: "Leave a family\nPOST /v1/family/leave"
+      operationId: leaveAFamilyPOSTv1familyleave
+      description: ''
+      parameters: []
+      responses: {  }
+      tags:
+        - Outros
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                family_id:
+                  type: string
+                  description: 'Must be a valid UUID. The <code>id</code> of an existing record in the families table.'
+                  example: 6ff8f7f6-1eb3-3525-be4a-3932c805afed
+                  nullable: true
+  '/api/v1/family/{familyId}/members/{userId}':
+    delete:
+      summary: "Remove a member from family (admin only)\nDELETE /v1/family/{familyId}/members/{userId}"
+      operationId: removeAMemberFromFamilyadminOnlyDELETEv1familyfamilyIdmembersuserId
+      description: ''
+      parameters: []
+      responses: {  }
+      tags:
+        - Outros
+    parameters:
+      -
+        in: path
+        name: familyId
+        description: ''
+        example: architecto
+        required: true
+        schema:
+          type: string
+      -
+        in: path
+        name: userId
+        description: ''
+        example: architecto
+        required: true
+        schema:
+          type: string
+  /api/v1/family/dependents:
+    get:
+      summary: "List dependents in family\nGET /v1/family/dependents"
+      operationId: listDependentsInFamilyGETv1familydependents
+      description: ''
+      parameters: []
+      responses: {  }
+      tags:
+        - Outros
+    post:
+      summary: "Add dependent\nPOST /v1/family/dependents"
+      operationId: addDependentPOSTv1familydependents
+      description: ''
+      parameters: []
+      responses: {  }
+      tags:
+        - Outros
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  description: 'Must not be greater than 100 characters.'
+                  example: b
+                birth_date:
+                  type: string
+                  description: 'Must be a valid date. Must be a date before <code>today</code>.'
+                  example: '2022-02-10'
+                  nullable: true
+                age_group:
+                  type: string
+                  description: ''
+                  example: toddler
+                  enum:
+                    - baby
+                    - toddler
+                    - kid
+                    - teen
+                avatar:
+                  type: string
+                  description: 'Must not be greater than 10 characters.'
+                  example: ngzmiy
+                  nullable: true
+                restrictions:
+                  type: array
+                  description: 'Must not be greater than 50 characters.'
+                  example:
+                    - v
+                  items:
+                    type: string
+                interests:
+                  type: array
+                  description: 'Must be a valid UUID. The <code>id</code> of an existing record in the categories table.'
+                  example:
+                    - 5707ca55-f609-3528-be8b-1baeaee1567e
+                  items:
+                    type: string
+              required:
+                - name
+                - age_group
+  '/api/v1/family/dependents/{id}':
+    put:
+      summary: "Update dependent\nPUT /v1/family/dependents/{id}"
+      operationId: updateDependentPUTv1familydependentsid
+      description: ''
+      parameters: []
+      responses: {  }
+      tags:
+        - Outros
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  description: 'Must not be greater than 100 characters.'
+                  example: b
+                  nullable: true
+                birth_date:
+                  type: string
+                  description: 'Must be a valid date. Must be a date before <code>today</code>.'
+                  example: '2022-02-10'
+                  nullable: true
+                age_group:
+                  type: string
+                  description: ''
+                  example: teen
+                  enum:
+                    - baby
+                    - toddler
+                    - kid
+                    - teen
+                  nullable: true
+                avatar:
+                  type: string
+                  description: 'Must not be greater than 10 characters.'
+                  example: ngzmiy
+                  nullable: true
+                restrictions:
+                  type: object
+                  description: ''
+                  example: null
+                  properties: {  }
+                  nullable: true
+                interests:
+                  type: object
+                  description: ''
+                  example: null
+                  properties: {  }
+                  nullable: true
+    delete:
+      summary: "Delete dependent\nDELETE /v1/family/dependents/{id}"
+      operationId: deleteDependentDELETEv1familydependentsid
+      description: ''
+      parameters: []
+      responses: {  }
+      tags:
+        - Outros
+    parameters:
+      -
+        in: path
+        name: id
+        description: 'The ID of the dependent.'
+        example: architecto
+        required: true
+        schema:
+          type: string
+  /api/v1/favorites:
+    get:
+      summary: "Get user favorites with optional list filter\nGET /v1/favorites?list_id={id}&cursor={cursor}"
+      operationId: getUserFavoritesWithOptionalListFilterGETv1favoriteslistIdidcursorcursor
+      description: ''
+      parameters: []
+      responses: {  }
+      tags:
+        - Outros
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                family_id:
+                  type: string
+                  description: 'Must be a valid UUID. The <code>id</code> of an existing record in the families table.'
+                  example: 6ff8f7f6-1eb3-3525-be4a-3932c805afed
+                  nullable: true
+                list_id:
+                  type: string
+                  description: 'Must be a valid UUID. The <code>id</code> of an existing record in the favorite_lists table.'
+                  example: 6b72fe4a-5b40-307c-bc24-f79acf9a1bb9
+                  nullable: true
+                cursor:
+                  type: string
+                  description: ''
+                  example: architecto
+                  nullable: true
+                limit:
+                  type: integer
+                  description: 'Must be at least 1. Must not be greater than 50.'
+                  example: 22
+                  nullable: true
+    post:
+      summary: "Save experience to favorites\nPOST /v1/favorites"
+      operationId: saveExperienceToFavoritesPOSTv1favorites
+      description: ''
+      parameters: []
+      responses: {  }
+      tags:
+        - Outros
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                experience_id:
+                  type: string
+                  description: 'Must be a valid UUID. The <code>id</code> of an existing record in the experiences table.'
+                  example: 6ff8f7f6-1eb3-3525-be4a-3932c805afed
+                list_id:
+                  type: string
+                  description: 'Must be a valid UUID. The <code>id</code> of an existing record in the favorite_lists table.'
+                  example: 6b72fe4a-5b40-307c-bc24-f79acf9a1bb9
+                  nullable: true
+                family_id:
+                  type: string
+                  description: 'Must be a valid UUID. The <code>id</code> of an existing record in the families table.'
+                  example: 977e5426-8d13-3824-86aa-b092f8ae52c5
+                  nullable: true
+                scope:
+                  type: string
+                  description: ''
+                  example: family
+                  enum:
+                    - user
+                    - family
+                  nullable: true
+              required:
+                - experience_id
+  '/api/v1/favorites/{experience_id}':
+    delete:
+      summary: "Remove experience from favorites\nDELETE /v1/favorites/{experience_id}"
+      operationId: removeExperienceFromFavoritesDELETEv1favoritesexperienceId
+      description: ''
+      parameters: []
+      responses: {  }
+      tags:
+        - Outros
+    parameters:
+      -
+        in: path
+        name: experience_id
+        description: 'The ID of the experience.'
+        example: architecto
+        required: true
+        schema:
+          type: string
+  /api/v1/favorite-lists:
+    post:
+      summary: "Create favorite list\nPOST /v1/favorite-lists"
+      operationId: createFavoriteListPOSTv1favoriteLists
+      description: ''
+      parameters: []
+      responses: {  }
+      tags:
+        - Outros
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  description: 'Must not be greater than 100 characters.'
+                  example: b
+                emoji:
+                  type: string
+                  description: 'Must not be greater than 10 characters.'
+                  example: ngzmiy
+                  nullable: true
+              required:
+                - name
+  '/api/v1/favorite-lists/{id}':
+    put:
+      summary: "Update favorite list\nPUT /v1/favorite-lists/{id}"
+      operationId: updateFavoriteListPUTv1favoriteListsid
+      description: ''
+      parameters: []
+      responses: {  }
+      tags:
+        - Outros
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  description: 'Must not be greater than 100 characters.'
+                  example: b
+                  nullable: true
+                emoji:
+                  type: string
+                  description: 'Must not be greater than 10 characters.'
+                  example: ngzmiy
+                  nullable: true
+    delete:
+      summary: "Delete favorite list\nDELETE /v1/favorite-lists/{id}"
+      operationId: deleteFavoriteListDELETEv1favoriteListsid
+      description: ''
+      parameters: []
+      responses: {  }
+      tags:
+        - Outros
+    parameters:
+      -
+        in: path
+        name: id
+        description: 'The ID of the favorite list.'
+        example: architecto
+        required: true
+        schema:
+          type: string
+  /api/v1/plans:
+    get:
+      summary: "List user plans\nGET /v1/plans"
+      operationId: listUserPlansGETv1plans
+      description: ''
+      parameters: []
+      responses: {  }
+      tags:
+        - Outros
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status:
+                  type: string
+                  description: ''
+                  example: completed
+                  enum:
+                    - draft
+                    - planned
+                    - in_progress
+                    - completed
+                  nullable: true
+                cursor:
+                  type: string
+                  description: ''
+                  example: architecto
+                  nullable: true
+                limit:
+                  type: integer
+                  description: 'Must be at least 1. Must not be greater than 50.'
+                  example: 22
+                  nullable: true
+    post:
+      summary: "Create a plan\nPOST /v1/plans"
+      operationId: createAPlanPOSTv1plans
+      description: ''
+      parameters: []
+      responses: {  }
+      tags:
+        - Outros
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+                  description: 'Must not be greater than 200 characters.'
+                  example: b
+                date:
+                  type: string
+                  description: 'Must be a valid date. Must be a date after or equal to <code>today</code>.'
+                  example: '2052-02-11'
+                  nullable: true
+                family_id:
+                  type: string
+                  description: 'Must be a valid UUID. The <code>id</code> of an existing record in the families table.'
+                  example: a4855dc5-0acb-33c3-b921-f4291f719ca0
+                  nullable: true
+                experience_ids:
+                  type: array
+                  description: 'Must be a valid UUID. The <code>id</code> of an existing record in the experiences table.'
+                  example:
+                    - c90237e9-ced5-3af6-88ea-84aeaa148878
+                  items:
+                    type: string
+              required:
+                - title
+  '/api/v1/plans/{id}':
+    get:
+      summary: "Get plan details\nGET /v1/plans/{id}"
+      operationId: getPlanDetailsGETv1plansid
+      description: ''
+      parameters: []
+      responses: {  }
+      tags:
+        - Outros
+    put:
+      summary: "Update plan\nPUT /v1/plans/{id}"
+      operationId: updatePlanPUTv1plansid
+      description: ''
+      parameters: []
+      responses: {  }
+      tags:
+        - Outros
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+                  description: 'Must not be greater than 200 characters.'
+                  example: b
+                  nullable: true
+                date:
+                  type: string
+                  description: 'Must be a valid date.'
+                  example: '2026-01-18T06:13:57'
+                  nullable: true
+                status:
+                  type: string
+                  description: ''
+                  example: completed
+                  enum:
+                    - draft
+                    - planned
+                    - in_progress
+                    - completed
+                  nullable: true
+                notes:
+                  type: string
+                  description: 'Must not be greater than 1000 characters.'
+                  example: 'n'
+                  nullable: true
+    delete:
+      summary: "Delete plan\nDELETE /v1/plans/{id}"
+      operationId: deletePlanDELETEv1plansid
+      description: ''
+      parameters: []
+      responses: {  }
+      tags:
+        - Outros
+    parameters:
+      -
+        in: path
+        name: id
+        description: 'The ID of the plan.'
+        example: architecto
+        required: true
+        schema:
+          type: string
+  '/api/v1/plans/{id}/complete':
+    post:
+      summary: "Mark plan as complete\nPOST /v1/plans/{id}/complete"
+      operationId: markPlanAsCompletePOSTv1plansidcomplete
+      description: ''
+      parameters: []
+      responses: {  }
+      tags:
+        - Outros
+    parameters:
+      -
+        in: path
+        name: id
+        description: 'The ID of the plan.'
+        example: architecto
+        required: true
+        schema:
+          type: string
+  '/api/v1/plans/{id}/duplicate':
+    post:
+      summary: "Duplicate plan\nPOST /v1/plans/{id}/duplicate"
+      operationId: duplicatePlanPOSTv1plansidduplicate
+      description: ''
+      parameters: []
+      responses: {  }
+      tags:
+        - Outros
+    parameters:
+      -
+        in: path
+        name: id
+        description: 'The ID of the plan.'
+        example: architecto
+        required: true
+        schema:
+          type: string
+  '/api/v1/plans/{id}/experiences':
+    post:
+      summary: "Add experience to plan\nPOST /v1/plans/{id}/experiences"
+      operationId: addExperienceToPlanPOSTv1plansidexperiences
+      description: ''
+      parameters: []
+      responses: {  }
+      tags:
+        - Outros
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                experience_id:
+                  type: string
+                  description: 'Must be a valid UUID. The <code>id</code> of an existing record in the experiences table.'
+                  example: 6ff8f7f6-1eb3-3525-be4a-3932c805afed
+                time_slot:
+                  type: string
+                  description: ''
+                  example: morning
+                  enum:
+                    - morning
+                    - afternoon
+                    - evening
+                  nullable: true
+                notes:
+                  type: string
+                  description: 'Must not be greater than 500 characters.'
+                  example: g
+                  nullable: true
+              required:
+                - experience_id
+    parameters:
+      -
+        in: path
+        name: id
+        description: 'The ID of the plan.'
+        example: architecto
+        required: true
+        schema:
+          type: string
+  '/api/v1/plans/{id}/experiences/{expId}':
+    put:
+      summary: "Update experience in plan\nPUT /v1/plans/{id}/experiences/{expId}"
+      operationId: updateExperienceInPlanPUTv1plansidexperiencesexpId
+      description: ''
+      parameters: []
+      responses: {  }
+      tags:
+        - Outros
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                order:
+                  type: integer
+                  description: 'Must be at least 0.'
+                  example: 27
+                  nullable: true
+                time_slot:
+                  type: string
+                  description: ''
+                  example: evening
+                  enum:
+                    - morning
+                    - afternoon
+                    - evening
+                  nullable: true
+                notes:
+                  type: string
+                  description: 'Must not be greater than 500 characters.'
+                  example: 'n'
+                  nullable: true
+    delete:
+      summary: "Remove experience from plan\nDELETE /v1/plans/{id}/experiences/{expId}"
+      operationId: removeExperienceFromPlanDELETEv1plansidexperiencesexpId
+      description: ''
+      parameters: []
+      responses: {  }
+      tags:
+        - Outros
+    parameters:
+      -
+        in: path
+        name: id
+        description: 'The ID of the plan.'
+        example: architecto
+        required: true
+        schema:
+          type: string
+      -
+        in: path
+        name: expId
+        description: ''
+        example: architecto
+        required: true
+        schema:
+          type: string
+  '/api/v1/plans/{id}/collaborators':
+    post:
+      summary: "Invite collaborator\nPOST /v1/plans/{id}/collaborators"
+      operationId: inviteCollaboratorPOSTv1plansidcollaborators
+      description: ''
+      parameters: []
+      responses: {  }
+      tags:
+        - Outros
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                user_id:
+                  type: string
+                  description: 'Must be a valid UUID. The <code>id</code> of an existing record in the users table.'
+                  example: 6ff8f7f6-1eb3-3525-be4a-3932c805afed
+                role:
+                  type: string
+                  description: ''
+                  example: viewer
+                  enum:
+                    - editor
+                    - viewer
+                  nullable: true
+              required:
+                - user_id
+    parameters:
+      -
+        in: path
+        name: id
+        description: 'The ID of the plan.'
+        example: architecto
+        required: true
+        schema:
+          type: string
+  '/api/v1/plans/{id}/collaborators/{userId}':
+    delete:
+      summary: "Remove collaborator\nDELETE /v1/plans/{id}/collaborators/{userId}"
+      operationId: removeCollaboratorDELETEv1plansidcollaboratorsuserId
+      description: ''
+      parameters: []
+      responses: {  }
+      tags:
+        - Outros
+    parameters:
+      -
+        in: path
+        name: id
+        description: 'The ID of the plan.'
+        example: architecto
+        required: true
+        schema:
+          type: string
+      -
+        in: path
+        name: userId
+        description: ''
+        example: architecto
+        required: true
+        schema:
+          type: string
+  '/api/v1/reviews/{id}':
+    put:
+      summary: "Update review\nPUT /v1/reviews/{id}"
+      operationId: updateReviewPUTv1reviewsid
+      description: ''
+      parameters: []
+      responses: {  }
+      tags:
+        - Outros
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                rating:
+                  type: integer
+                  description: 'Must be at least 1. Must not be greater than 5.'
+                  example: 1
+                  nullable: true
+                comment:
+                  type: string
+                  description: 'Must not be greater than 2000 characters.'
+                  example: 'n'
+                  nullable: true
+                tags:
+                  type: array
+                  description: 'Must not be greater than 50 characters.'
+                  example:
+                    - g
+                  items:
+                    type: string
+    delete:
+      summary: "Delete review (soft delete)\nDELETE /v1/reviews/{id}"
+      operationId: deleteReviewsoftDeleteDELETEv1reviewsid
+      description: ''
+      parameters: []
+      responses: {  }
+      tags:
+        - Outros
+    parameters:
+      -
+        in: path
+        name: id
+        description: 'The ID of the review.'
+        example: architecto
+        required: true
+        schema:
+          type: string
+  '/api/v1/reviews/{id}/helpful':
+    post:
+      summary: "Mark review as helpful\nPOST /v1/reviews/{id}/helpful"
+      operationId: markReviewAsHelpfulPOSTv1reviewsidhelpful
+      description: ''
+      parameters: []
+      responses: {  }
+      tags:
+        - Outros
+    parameters:
+      -
+        in: path
+        name: id
+        description: 'The ID of the review.'
+        example: architecto
+        required: true
+        schema:
+          type: string
+  /api/v1/memories:
+    get:
+      summary: "List family memories\nGET /v1/memories"
+      operationId: listFamilyMemoriesGETv1memories
+      description: ''
+      parameters: []
+      responses: {  }
+      tags:
+        - Outros
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                family_id:
+                  type: string
+                  description: 'Must be a valid UUID. The <code>id</code> of an existing record in the families table.'
+                  example: 6ff8f7f6-1eb3-3525-be4a-3932c805afed
+                  nullable: true
+                experience_id:
+                  type: string
+                  description: 'Must be a valid UUID. The <code>id</code> of an existing record in the experiences table.'
+                  example: 6b72fe4a-5b40-307c-bc24-f79acf9a1bb9
+                  nullable: true
+                cursor:
+                  type: string
+                  description: ''
+                  example: architecto
+                  nullable: true
+                limit:
+                  type: integer
+                  description: 'Must be at least 1. Must not be greater than 50.'
+                  example: 22
+                  nullable: true
+    post:
+      summary: "Upload memory\nPOST /v1/memories"
+      operationId: uploadMemoryPOSTv1memories
+      description: ''
+      parameters: []
+      responses: {  }
+      tags:
+        - Outros
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                image_url:
+                  type: string
+                  description: 'Must be a valid URL.'
+                  example: 'http://www.bailey.biz/quos-velit-et-fugiat-sunt-nihil-accusantium-harum.html'
+                thumbnail_url:
+                  type: string
+                  description: 'Must be a valid URL.'
+                  example: 'https://www.runte.com/ab-provident-perspiciatis-quo-omnis-nostrum-aut-adipisci'
+                  nullable: true
+                caption:
+                  type: string
+                  description: 'Must not be greater than 500 characters.'
+                  example: p
+                  nullable: true
+                experience_id:
+                  type: string
+                  description: 'Must be a valid UUID. The <code>id</code> of an existing record in the experiences table.'
+                  example: 7212c28d-f9ab-3dd7-af8a-06584a0d4cb7
+                  nullable: true
+                plan_id:
+                  type: string
+                  description: 'Must be a valid UUID. The <code>id</code> of an existing record in the plans table.'
+                  example: 0a9446d3-4070-3757-8926-67a9d2adbc0e
+                  nullable: true
+                family_id:
+                  type: string
+                  description: 'Must be a valid UUID. The <code>id</code> of an existing record in the families table.'
+                  example: c68e0767-6220-31fb-a489-61093ff79529
+                  nullable: true
+                visibility:
+                  type: string
+                  description: ''
+                  example: public
+                  enum:
+                    - private
+                    - family
+                    - collaborators
+                    - public
+                  nullable: true
+                taken_at:
+                  type: string
+                  description: 'Must be a valid date.'
+                  example: '2026-01-18T06:13:57'
+                  nullable: true
+              required:
+                - image_url
+  '/api/v1/memories/{id}':
+    get:
+      summary: "Get memory details\nGET /v1/memories/{id}"
+      operationId: getMemoryDetailsGETv1memoriesid
+      description: ''
+      parameters: []
+      responses: {  }
+      tags:
+        - Outros
+    delete:
+      summary: "Delete memory\nDELETE /v1/memories/{id}"
+      operationId: deleteMemoryDELETEv1memoriesid
+      description: ''
+      parameters: []
+      responses: {  }
+      tags:
+        - Outros
+    parameters:
+      -
+        in: path
+        name: id
+        description: 'The ID of the memory.'
+        example: architecto
+        required: true
+        schema:
+          type: string
+  '/api/v1/memories/{id}/reactions':
+    post:
+      summary: "Add reaction to memory\nPOST /v1/memories/{id}/reactions"
+      operationId: addReactionToMemoryPOSTv1memoriesidreactions
+      description: ''
+      parameters: []
+      responses: {  }
+      tags:
+        - Outros
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                emoji:
+                  type: string
+                  description: 'Must not be greater than 10 characters.'
+                  example: bngzmi
+              required:
+                - emoji
+    parameters:
+      -
+        in: path
+        name: id
+        description: 'The ID of the memory.'
+        example: architecto
+        required: true
+        schema:
+          type: string
+  '/api/v1/memories/{id}/comments':
+    post:
+      summary: "Add comment to memory\nPOST /v1/memories/{id}/comments"
+      operationId: addCommentToMemoryPOSTv1memoriesidcomments
+      description: ''
+      parameters: []
+      responses: {  }
+      tags:
+        - Outros
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                content:
+                  type: string
+                  description: 'Must not be greater than 500 characters.'
+                  example: b
+              required:
+                - content
+    parameters:
+      -
+        in: path
+        name: id
+        description: 'The ID of the memory.'
+        example: architecto
+        required: true
+        schema:
+          type: string
+  /api/v1/notifications:
+    get:
+      summary: "List user notifications\nGET /v1/notifications"
+      operationId: listUserNotificationsGETv1notifications
+      description: ''
+      parameters: []
+      responses: {  }
+      tags:
+        - Outros
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                cursor:
+                  type: string
+                  description: ''
+                  example: architecto
+                  nullable: true
+                limit:
+                  type: integer
+                  description: 'Must be at least 1. Must not be greater than 50.'
+                  example: 22
+                  nullable: true
+  /api/v1/notifications/unread-count:
+    get:
+      summary: "Get unread count\nGET /v1/notifications/unread-count"
+      operationId: getUnreadCountGETv1notificationsunreadCount
+      description: ''
+      parameters: []
+      responses: {  }
+      tags:
+        - Outros
+  '/api/v1/notifications/{id}/read':
+    patch:
+      summary: "Mark notification as read\nPATCH /v1/notifications/{id}/read"
+      operationId: markNotificationAsReadPATCHv1notificationsidread
+      description: ''
+      parameters: []
+      responses: {  }
+      tags:
+        - Outros
+    parameters:
+      -
+        in: path
+        name: id
+        description: 'The ID of the notification.'
+        example: architecto
+        required: true
+        schema:
+          type: string
+  /api/v1/notifications/read-all:
+    post:
+      summary: "Mark all notifications as read\nPOST /v1/notifications/read-all"
+      operationId: markAllNotificationsAsReadPOSTv1notificationsreadAll
+      description: ''
+      parameters: []
+      responses: {  }
+      tags:
+        - Outros
+  '/api/v1/notifications/{id}':
+    delete:
+      summary: "Delete notification\nDELETE /v1/notifications/{id}"
+      operationId: deleteNotificationDELETEv1notificationsid
+      description: ''
+      parameters: []
+      responses: {  }
+      tags:
+        - Outros
+    parameters:
+      -
+        in: path
+        name: id
+        description: 'The ID of the notification.'
+        example: architecto
+        required: true
+        schema:
+          type: string
+  /api/v1/notifications/settings:
+    get:
+      summary: "Get notification settings\nGET /v1/notifications/settings"
+      operationId: getNotificationSettingsGETv1notificationssettings
+      description: ''
+      parameters: []
+      responses: {  }
+      tags:
+        - Outros
+    put:
+      summary: "Update notification settings\nPUT /v1/notifications/settings"
+      operationId: updateNotificationSettingsPUTv1notificationssettings
+      description: ''
+      parameters: []
+      responses: {  }
+      tags:
+        - Outros
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                push_enabled:
+                  type: boolean
+                  description: ''
+                  example: true
+                  nullable: true
+                email_enabled:
+                  type: boolean
+                  description: ''
+                  example: false
+                  nullable: true
+                types:
+                  type: array
+                  description: ''
+                  example:
+                    - true
+                  items:
+                    type: boolean
+                quiet_hours:
+                  type: object
+                  description: ''
+                  example: null
+                  properties:
+                    enabled:
+                      type: boolean
+                      description: ''
+                      example: true
+                      nullable: true
+                    start:
+                      type: string
+                      description: 'Must be a valid date in the format <code>H:i</code>.'
+                      example: '06:13'
+                      nullable: true
+                    end:
+                      type: string
+                      description: 'Must be a valid date in the format <code>H:i</code>.'
+                      example: '06:13'
+                      nullable: true
+                  nullable: true
+  /api/v1/uploads/presign:
+    post:
+      summary: "Generate presigned URL for direct S3 upload\nPOST /v1/uploads/presign"
+      operationId: generatePresignedURLForDirectS3UploadPOSTv1uploadspresign
+      description: ''
+      parameters: []
+      responses: {  }
+      tags:
+        - Outros
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                type:
+                  type: string
+                  description: ''
+                  example: memory
+                  enum:
+                    - memory
+                    - review
+                    - avatar
+                    - family_avatar
+                content_type:
+                  type: string
+                  description: ''
+                  example: image/png
+                  enum:
+                    - image/jpeg
+                    - image/png
+                    - image/webp
+                filename:
+                  type: string
+                  description: 'Must not be greater than 255 characters.'
+                  example: b
+              required:
+                - type
+                - content_type
+                - filename
+  /api/v1/uploads/local:
+    post:
+      summary: "Local file upload (development only)\nPOST /v1/uploads/local"
+      operationId: localFileUploaddevelopmentOnlyPOSTv1uploadslocal
+      description: ''
+      parameters: []
+      responses: {  }
+      tags:
+        - Outros
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: 'Must be an image. Must not be greater than 10240 kilobytes.'
+                key:
+                  type: string
+                  description: 10MB.
+                  example: architecto
+              required:
+                - file
+                - key
+  /api/v1/reports:
+    post:
+      summary: "Submit a report\nPOST /v1/reports"
+      operationId: submitAReportPOSTv1reports
+      description: ''
+      parameters: []
+      responses: {  }
+      tags:
+        - Outros
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                type:
+                  type: string
+                  description: ''
+                  example: review
+                  enum:
+                    - experience
+                    - review
+                    - memory
+                    - user
+                target_id:
+                  type: string
+                  description: 'Must be a valid UUID.'
+                  example: 6ff8f7f6-1eb3-3525-be4a-3932c805afed
+                reason:
+                  type: string
+                  description: ''
+                  example: harassment
+                  enum:
+                    - inappropriate
+                    - spam
+                    - wrong_info
+                    - closed
+                    - harassment
+                    - other
+                details:
+                  type: string
+                  description: 'Must not be greater than 1000 characters.'
+                  example: g
+                  nullable: true
+              required:
+                - type
+                - target_id
+                - reason
+  /api/v1/share-links:
+    post:
+      summary: "Generate share link\nPOST /v1/share-links"
+      operationId: generateShareLinkPOSTv1shareLinks
+      description: ''
+      parameters: []
+      responses: {  }
+      tags:
+        - Outros
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                type:
+                  type: string
+                  description: ''
+                  example: invite
+                  enum:
+                    - experience
+                    - plan
+                    - family
+                    - invite
+                target_id:
+                  type: string
+                  description: 'Must be a valid UUID.'
+                  example: 6ff8f7f6-1eb3-3525-be4a-3932c805afed
+                utm_source:
+                  type: string
+                  description: 'Must not be greater than 50 characters.'
+                  example: g
+                  nullable: true
+                utm_campaign:
+                  type: string
+                  description: 'Must not be greater than 50 characters.'
+                  example: z
+                  nullable: true
+              required:
+                - type
+                - target_id

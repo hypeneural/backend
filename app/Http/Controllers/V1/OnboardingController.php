@@ -11,11 +11,52 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
+/**
+ * @group 2. Onboarding
+ *
+ * Endpoints para o fluxo de onboarding de novos usuários.
+ *
+ * Após o primeiro login, o usuário deve completar o onboarding para
+ * personalizar sua experiência. O fluxo inclui:
+ * 1. Informar nome
+ * 2. Criar/nomear família
+ * 3. Selecionar categorias favoritas
+ * 4. Definir preferências (distância, preço)
+ * 5. Adicionar dependentes (opcional)
+ */
 class OnboardingController extends Controller
 {
     /**
-     * Get onboarding status
-     * GET /v1/onboarding/status
+     * Status do Onboarding
+     *
+     * Verifica quais etapas do onboarding o usuário já completou
+     * e quais ainda estão pendentes.
+     *
+     * @authenticated
+     *
+     * @response 200 scenario="Onboarding incompleto" {
+     *   "data": {
+     *     "completed": false,
+     *     "steps_completed": ["name", "family"],
+     *     "missing_steps": ["preferences", "categories"]
+     *   },
+     *   "meta": {"success": true},
+     *   "errors": null
+     * }
+     *
+     * @response 200 scenario="Onboarding completo" {
+     *   "data": {
+     *     "completed": true,
+     *     "steps_completed": ["name", "family", "preferences", "categories", "dependents"],
+     *     "missing_steps": []
+     *   },
+     *   "meta": {"success": true},
+     *   "errors": null
+     * }
+     *
+     * @responseField completed boolean Se todas as etapas obrigatórias foram completadas.
+     * @responseField steps_completed string[] Lista de etapas já completadas.
+     * @responseField missing_steps string[] Lista de etapas pendentes.
      */
     public function status(Request $request): JsonResponse
     {
@@ -78,8 +119,50 @@ class OnboardingController extends Controller
     }
 
     /**
-     * Complete onboarding
-     * POST /v1/onboarding/complete
+     * Completar Onboarding
+     *
+     * Completa todas as etapas do onboarding de uma vez.
+     * Este endpoint executa as seguintes ações em uma transação:
+     * - Atualiza o nome do usuário
+     * - Atualiza o nome da família (se fornecido)
+     * - Cria as preferências da família
+     * - Associa as categorias favoritas
+     * - Cria os dependentes (se fornecidos)
+     * - Marca o onboarding como concluído
+     *
+     * @authenticated
+     *
+     * @bodyParam name string required Nome do usuário. Example: João Silva
+     * @bodyParam favorite_categories string[] required Lista de UUIDs das categorias favoritas (mínimo 1). Example: ["c038d7b3-74b9-4c28-8488-b64a5dc1d791"]
+     * @bodyParam max_distance_km integer Distância máxima em km para buscar experiências (1-100). Default: 30. Example: 30
+     * @bodyParam default_price string Faixa de preço preferida: `free`, `moderate`, `top`. Default: moderate. Example: moderate
+     * @bodyParam family_name string Nome da família. Example: Família Silva
+     * @bodyParam dependents object[] Lista de dependentes (crianças).
+     * @bodyParam dependents[].name string required Nome do dependente. Example: Lucas
+     * @bodyParam dependents[].birth_date string Data de nascimento (YYYY-MM-DD). Example: 2018-05-15
+     * @bodyParam dependents[].age_group string required Faixa etária: `baby` (0-1), `toddler` (2-4), `kid` (5-12), `teen` (13-17). Example: kid
+     * @bodyParam dependents[].avatar string Emoji para avatar do dependente. Example: 👦
+     *
+     * @response 201 scenario="Onboarding completado" {
+     *   "data": {
+     *     "message": "Onboarding completed successfully!",
+     *     "user": {
+     *       "id": "019bcf92-ecda-70a6-98ec-204362b9c61a",
+     *       "name": "João Silva",
+     *       "onboarding_completed": true
+     *     }
+     *   },
+     *   "meta": {"success": true},
+     *   "errors": null
+     * }
+     *
+     * @response 422 scenario="Dados inválidos" {
+     *   "data": null,
+     *   "meta": {"success": false},
+     *   "errors": [
+     *     {"code": "VALIDATION_ERROR", "field": "favorite_categories", "message": "O campo favorite_categories é obrigatório"}
+     *   ]
+     * }
      */
     public function complete(Request $request): JsonResponse
     {
