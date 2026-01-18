@@ -6,11 +6,10 @@ use App\Http\Controllers\Controller;
 use App\Jobs\UpdateExperienceSearchJob;
 use App\Models\Favorite;
 use App\Models\FavoriteList;
+use App\Support\CacheHelper;
 use App\Support\CursorPaginator;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\Redis;
 
 class FavoriteController extends Controller
 {
@@ -140,14 +139,14 @@ class FavoriteController extends Controller
             'saved_at' => now(),
         ]);
 
-        // Increment Redis counter (will be flushed to DB by job)
-        Redis::hincrby("experience:metrics:{$request->experience_id}", 'saves', 1);
+        // Increment Redis counter (will be flushed to DB by job) - graceful fallback if no Redis
+        CacheHelper::redisIncrement("experience:metrics:{$request->experience_id}", 'saves');
 
         // Mark experience for read model update
-        Redis::sadd('experience_search:dirty', $request->experience_id);
+        CacheHelper::redisSetAdd('experience_search:dirty', $request->experience_id);
 
-        // Invalidate caches
-        Cache::tags(['experience:' . $request->experience_id])->flush();
+        // Invalidate caches (graceful fallback if tags not supported)
+        CacheHelper::flushTags(['experience:' . $request->experience_id]);
 
         return response()->json([
             'data' => [
@@ -182,14 +181,14 @@ class FavoriteController extends Controller
 
         $favorite->delete();
 
-        // Increment unsave counter
-        Redis::hincrby("experience:metrics:{$experienceId}", 'unsaves', 1);
+        // Increment unsave counter - graceful fallback if no Redis
+        CacheHelper::redisIncrement("experience:metrics:{$experienceId}", 'unsaves');
 
         // Mark for read model update
-        Redis::sadd('experience_search:dirty', $experienceId);
+        CacheHelper::redisSetAdd('experience_search:dirty', $experienceId);
 
-        // Invalidate caches
-        Cache::tags(['experience:' . $experienceId])->flush();
+        // Invalidate caches (graceful fallback if tags not supported)
+        CacheHelper::flushTags(['experience:' . $experienceId]);
 
         return response()->json([
             'data' => ['message' => 'Removed from favorites.'],

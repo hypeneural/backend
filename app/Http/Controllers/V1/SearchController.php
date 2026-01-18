@@ -4,10 +4,10 @@ namespace App\Http\Controllers\V1;
 
 use App\Http\Controllers\Controller;
 use App\Models\ExperienceSearch;
+use App\Support\CacheHelper;
 use App\Support\CursorPaginator;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Cache;
 use Spatie\QueryBuilder\QueryBuilder;
 use Spatie\QueryBuilder\AllowedFilter;
 
@@ -124,10 +124,12 @@ class SearchController extends Controller
 
         // Get facets (cached per city + filter hash)
         $filterHash = md5(json_encode($request->only(['categories', 'price', 'duration', 'age_tags', 'weather'])));
-        $facets = Cache::tags(['city:' . $cityId, 'facets'])
-            ->remember("facets:{$cityId}:{$filterHash}", 120, function () use ($cityId) {
-                return $this->calculateFacets($cityId);
-            });
+        $facets = CacheHelper::remember(
+            "facets:{$cityId}:{$filterHash}",
+            120,
+            fn() => $this->calculateFacets($cityId),
+            ['city:' . $cityId, 'facets']
+        );
 
         return response()->json([
             'data' => [

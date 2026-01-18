@@ -4,9 +4,9 @@ namespace App\Http\Controllers\V1;
 
 use App\Http\Controllers\Controller;
 use App\Models\Category;
+use App\Support\CacheHelper;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Cache;
 
 /**
  * @group 8. Categorias
@@ -68,13 +68,15 @@ class CategoryController extends Controller
     public function index(Request $request): JsonResponse
     {
         // Cache categories for 24 hours (they rarely change)
-        $categories = Cache::tags(['categories'])
-            ->remember('categories:all', 86400, function () {
-                return Category::active()
-                    ->orderBy('order')
-                    ->withCount('experiences')
-                    ->get();
-            });
+        $categories = CacheHelper::remember(
+            'categories:all',
+            86400,
+            fn() => Category::active()
+                ->orderBy('order')
+                ->withCount('experiences')
+                ->get(),
+            ['categories']
+        );
 
         return response()->json([
             'data' => $categories->map(fn($c) => [

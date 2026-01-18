@@ -6,12 +6,11 @@ use App\Http\Controllers\Controller;
 use App\Models\Experience;
 use App\Models\Review;
 use App\Models\ReviewPhoto;
+use App\Support\CacheHelper;
 use App\Support\CursorPaginator;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Redis;
 
 class ReviewController extends Controller
 {
@@ -152,15 +151,15 @@ class ReviewController extends Controller
             return $review;
         });
 
-        // Update experience counters via Redis
-        Redis::hincrby("experience:metrics:{$experienceId}", 'reviews', 1);
-        Redis::sadd('experience_search:dirty', $experienceId);
+        // Update experience counters via Redis (graceful fallback)
+        CacheHelper::redisIncrement("experience:metrics:{$experienceId}", 'reviews');
+        CacheHelper::redisSetAdd('experience_search:dirty', $experienceId);
 
         // Recalculate average rating
         $this->updateAverageRating($experienceId);
 
-        // Invalidate caches
-        Cache::tags(['experience:' . $experienceId])->flush();
+        // Invalidate caches (graceful fallback)
+        CacheHelper::flushTags(['experience:' . $experienceId]);
 
         return response()->json([
             'data' => [
@@ -240,7 +239,7 @@ class ReviewController extends Controller
         // Recalculate average if rating changed
         if ($request->has('rating')) {
             $this->updateAverageRating($review->experience_id);
-            Cache::tags(['experience:' . $review->experience_id])->flush();
+            CacheHelper::flushTags(['experience:' . $review->experience_id]);
         }
 
         return response()->json([
@@ -277,8 +276,8 @@ class ReviewController extends Controller
 
         // Update counters
         $this->updateAverageRating($experienceId);
-        Redis::sadd('experience_search:dirty', $experienceId);
-        Cache::tags(['experience:' . $experienceId])->flush();
+        CacheHelper::redisSetAdd('experience_search:dirty', $experienceId);
+        CacheHelper::flushTags(['experience:' . $experienceId]);
 
         return response()->json([
             'data' => ['message' => 'Review deleted.'],

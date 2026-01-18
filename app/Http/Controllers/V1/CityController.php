@@ -4,9 +4,9 @@ namespace App\Http\Controllers\V1;
 
 use App\Http\Controllers\Controller;
 use App\Models\City;
+use App\Support\CacheHelper;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Cache;
 
 /**
  * @group 9. Cidades
@@ -144,11 +144,12 @@ class CityController extends Controller
      */
     public function show(Request $request, string $id): JsonResponse
     {
-        $city = Cache::tags(['cities'])
-            ->remember("city:{$id}", 3600, function () use ($id) {
-                return City::withCount(['places', 'experiences'])
-                    ->findOrFail($id);
-            });
+        $city = CacheHelper::remember(
+            "city:{$id}",
+            3600,
+            fn() => City::withCount(['places', 'experiences'])->findOrFail($id),
+            ['cities']
+        );
 
         return response()->json([
             'data' => [

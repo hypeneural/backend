@@ -4,9 +4,9 @@ namespace App\Http\Controllers\V1;
 
 use App\Http\Controllers\Controller;
 use App\Models\Experience;
+use App\Support\CacheHelper;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Cache;
 
 class ExperienceController extends Controller
 {
@@ -20,20 +20,22 @@ class ExperienceController extends Controller
         $userLat = $user->last_lat ?? -23.5505;
         $userLng = $user->last_lng ?? -46.6333;
 
-        // Cache experience data (10 min, invalidated by tags)
-        $experience = Cache::tags(['experience:' . $id])
-            ->remember("experience:detail:{$id}", 600, function () use ($id) {
-                return Experience::with([
-                    'category',
-                    'place.city',
-                    'reviews' => function ($q) {
-                        $q->public()->orderByDesc('helpful_count')->limit(5);
-                    },
-                    'reviews.user'
-                ])
-                    ->where('status', 'published')
-                    ->findOrFail($id);
-            });
+        // Cache experience data (10 min, with optional tag invalidation)
+        $experience = CacheHelper::remember(
+            "experience:detail:{$id}",
+            600,
+            fn() => Experience::with([
+                'category',
+                'place.city',
+                'reviews' => function ($q) {
+                    $q->public()->orderByDesc('helpful_count')->limit(5);
+                },
+                'reviews.user'
+            ])
+                ->where('status', 'published')
+                ->findOrFail($id),
+            ['experience:' . $id]
+        );
 
         // Check if saved by user
         $isSaved = $user->favorites()->where('experience_id', $id)->exists();

@@ -39,11 +39,11 @@ class HomeController extends Controller
         $userLat = $request->lat ?? $user->last_lat ?? -23.5505;
         $userLng = $request->lng ?? $user->last_lng ?? -46.6333;
 
-        // Cache city data (shared across users)
-        $cityData = Cache::tags(['city:' . $cityId, 'home'])
-            ->remember("home:city:{$cityId}", 120, function () use ($cityId, $userLat, $userLng) {
-                return $this->buildCityData($cityId, $userLat, $userLng);
-            });
+        // Cache city data (shared across users) - use simple cache (tags only work with redis/memcached)
+        $cacheKey = "home:city:{$cityId}";
+        $cityData = Cache::remember($cacheKey, 120, function () use ($cityId, $userLat, $userLng) {
+            return $this->buildCityData($cityId, $userLat, $userLng);
+        });
 
         // User-specific overlay (favorites set)
         $userFavoriteIds = $user->favorites()
